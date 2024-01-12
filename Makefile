@@ -88,6 +88,8 @@ stop-docsig:
 	docker rm docsig
 
 start-trivweb:
+	cat $(TARGET)/request.tpl | sed -e s/HOST/`hostname`/ \
+		> $(TARGET)/request.html
 	docker run --publish 80:80 --detach --name trivweb \
 		-v `dirname $(TARGET)`:/usr/app/:ro \
 		--env TARGET=/usr/app/`basename $(TARGET)` \

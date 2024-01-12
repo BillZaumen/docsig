@@ -34,10 +34,10 @@
 	<input name="id" type="hidden" value="1234" width="48">
 	<input name="transID" type="hidden" value="123456789" width="48">
 	<input name="sigserver" type="hidden"
-	       value="http://localhost:8080/docsig/">
+	       value="http://HOST:8080/docsig/">
 	<input name="type" type="hidden" value="document">
 	<input name="document" type="hidden"
-	       value="http://localhost/document.txt">
+	       value="http://wtz-thelio/document.txt">
 	<input name="sendto" type="hidden"
 	       value="wtz@sonic.net">
 	<input name="subject" type="hidden" value="Document Signature">

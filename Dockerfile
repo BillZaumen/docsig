@@ -35,4 +35,3 @@ WORKDIR usr/app
 
 CMD ["java", "-p", "/usr/share/bzdev", "-m", "org.bzdev.docsig", \
      "/usr/app/docsig", "/usr/app/docsig.config"]
-
