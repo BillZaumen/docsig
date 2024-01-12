@@ -1,0 +1,17 @@
+import (org.bzdev.docsig.verify.DocsigVerifier);
+import (org.bzdev.docsig.verify.DocsigVerifier.Result);
+import (org.bzdev.net.HeaderOps);
+
+var in = global.getReader();
+var out = global.getWriter();
+
+var results = decodeFrom(in);
+var headers = results.getHeaders();
+
+var list = ["acceptedBy", "date", "ipaddr", "id",
+	    "transID", "email", "server", "sendto",
+	    "document", "digest", "publicKeyID"];
+
+list.forEach(function (name) {
+    out.println(name + ": " + headers.getFirst(name));
+});

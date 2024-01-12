@@ -1,0 +1,11 @@
+*.jar
+*~
+mods/**
+/org
+/org/**
+/vorg
+/vorg/**
+*.mbox
+docsig.properties
+docsig-dir/**
+docsig/**

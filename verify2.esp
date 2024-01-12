@@ -1,0 +1,24 @@
+import (org.bzdev.docsig.verify.DocsigVerifier);
+import (org.bzdev.docsig.verify.DocsigVerifier.Result);
+import (org.bzdev.net.HeaderOps);
+
+var in = global.getReader();
+var out = global.getWriter();
+var err = global.getErrorWriter();
+
+var results = decodeFromMbox(in, err);
+
+var list = ["acceptedBy", "date", "ipaddr", "id",
+	    "transID", "email", "server", "sendto",
+	    "document", "digest", "publicKeyID"];
+
+results.forEach(function(result) {
+    var headers = result.getHeaders();
+    out.println("**** status = " + result.getStatus()
+		+ ", sent from " + result.getEmailAddr()
+		+ " by " + result.getEmailName());
+    out.println("**** message ID = " + result.getMessageID());
+    list.forEach(function (name) {
+	out.println(name + ": " + headers.getFirst(name));
+    });
+});
