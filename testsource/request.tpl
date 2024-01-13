@@ -23,7 +23,7 @@
       "Continue" button.  You will get a link to the document with
       a digitally generated signature that you can submit.
     <P>
-      <form action="http://localhost:8080/docsig/" method="post">
+      <form action="http://HOST:8080/docsig/" method="post">
 	Name:
 	<input name="name" type="text" placeholder="Your Name" width="48">
 	<br><br>
@@ -37,9 +37,9 @@
 	       value="http://HOST:8080/docsig/">
 	<input name="type" type="hidden" value="document">
 	<input name="document" type="hidden"
-	       value="http://wtz-thelio/document.txt">
+	       value="http://HOST/document.txt">
 	<input name="sendto" type="hidden"
-	       value="wtz@sonic.net">
+	       value="SENDTO">
 	<input name="subject" type="hidden" value="Document Signature">
 	<input type="submit" value="Continue"
 	       style="font-size: 150%">

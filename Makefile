@@ -1,6 +1,7 @@
 # GNU Makefile
 
 TARGET=testsource
+
 JFILES = $(wildcard src/org.bzdev.docsig/org/bzdev/docsig/*.java)
 JFILES2 = $(wildcard src/org.bzdev.docsig.verify/org/bzdev/docsig/verify/*.java)
 
@@ -88,7 +89,8 @@ stop-docsig:
 	docker rm docsig
 
 start-trivweb:
-	cat $(TARGET)/request.tpl | sed -e s/HOST/`hostname`/ \
+	cat $(TARGET)/request.tpl | sed -e "s/HOST/`hostname -f`/" \
+		| sed -e "s/SENDTO/`git config --get docsig.sendto`/" \
 		> $(TARGET)/request.html
 	docker run --publish 80:80 --detach --name trivweb \
 		-v `dirname $(TARGET)`:/usr/app/:ro \
