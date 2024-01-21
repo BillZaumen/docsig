@@ -9,7 +9,7 @@ var results = decodeFrom(in);
 var headers = results.getHeaders();
 
 var list = ["acceptedBy", "date", "ipaddr", "id",
-	    "transID", "email", "server", "sendto",
+	    "transID", "email", "server", "sendto", "cc",
 	    "document", "digest", "publicKeyID"];
 
 list.forEach(function (name) {

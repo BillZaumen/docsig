@@ -3,7 +3,7 @@
   <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
+  <style type="text/css">
     BODY {
         background-color: $(bgcolor);
         color: $(color);
@@ -16,20 +16,20 @@
   <title>Signature Request</title>
   </head>
   <body>
-    <P> This page was produced by $(sigserver) --- a URL starting with
-      this string may be displayed if you click on the
-      link
+    <P> This page was produced by $(sigserver) --- the following
+      link will display the $(type) to be signed:
       <BLOCKQUOTE>
 <A HREF="$(sigserver)/sigrequest?url=$(document)&digest=$(digest)">$(document)</A>
       </BLOCKQUOTE>
-	containing the $(type). Its SHA-256 message digest is
+	and its SHA-256 message digest is
       <BLOCKQUOTE>
  $(digest)
       </BLOCKQUOTE>
     <P>
       To sign the $(type), click the following button. This should open an
       email window with everything filled out.  If possible, please send it
-      with a GPG or PGP signature.
+      with a GPG or PGP signature. The signature will not be valid if the
+      text of the email is modified.
     <P><br>
     <A href="mailto:$(sendto)?$(query)"
        style="background-color:$(buttonBGColor);color:$(buttonFGColor); padding: 14px 25px; text-align: center; text-decoration: none;">Click To Send</A>

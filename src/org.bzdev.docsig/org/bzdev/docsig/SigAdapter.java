@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.zip.GZIPOutputStream;
+import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.CRC32;
 
 import org.bzdev.io.AppendableWriter;
 import org.bzdev.net.*;
@@ -128,6 +131,19 @@ public class SigAdapter implements ServletAdapter {
 	}
     }
 
+    static void sendSimpleResponse(HttpServerResponse res, int code,
+				   String msg)
+	throws IOException, ServletAdapter.ServletException
+    {
+	byte[] bytes = msg.getBytes(UTF8);
+	res.setHeader("content-type", "text/plain; charset=UTF-8");
+	res.sendResponseHeaders(code, bytes.length);
+	OutputStream os = res.getOutputStream();
+	os.write(bytes);
+	os.flush();
+	os.close();
+    }
+
     @Override
     public void doGet(HttpServerRequest req, HttpServerResponse res)
 	throws IOException, ServletAdapter.ServletException
@@ -136,21 +152,64 @@ public class SigAdapter implements ServletAdapter {
 	String docurl = req.getParameter("url");
 	String digest = req.getParameter("digest");
 	String pemreq = req.getParameter("publicKeyRequest");
+	String getreq = req.getParameter("getPublicKeys");
 	docurl = (docurl == null)? null: docurl.trim();
 	digest = (digest == null)? null: digest.trim().toLowerCase();
 	pemreq = (pemreq == null)? null: pemreq.trim();
+	getreq = (getreq == null)? null: getreq.trim().toLowerCase();
 	if (docurl == null || digest == null) {
 	    
-	    if (hasKey == null && pemreq == null) {
-		throw new ServletAdapter.ServletException("missing query data");
+	    if (getreq != null && getreq.length() != 0) {
+		if (hasKey != null || docurl != null || digest != null
+		    || pemreq != null) {
+		    sendSimpleResponse(res, 400, "conflicting query fields");
+		} else {
+		    // Get a zip file for the public key files
+		    if (publicKeyDir == null) {
+			sendSimpleResponse(res, 404, "no public key directory");
+			return;
+		    }
+		    ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
+		    GZIPOutputStream gzos = new GZIPOutputStream(bos);
+		    ZipOutputStream zos = new ZipOutputStream(gzos, UTF8);
+		    zos.setMethod(ZipOutputStream.STORED);
+		    for (File f: publicKeyDir.listFiles()) {
+			FileInputStream in = new FileInputStream(f);
+			ByteArrayOutputStream out =
+			    new ByteArrayOutputStream(1024);
+			in.transferTo(out);
+			out.close();
+			ZipEntry ze = new ZipEntry(f.getName());
+			CRC32 crc = new CRC32();
+			byte[] bytes = out.toByteArray();
+			crc.update(bytes);
+			ze.setSize(bytes.length);
+			ze.setCompressedSize(bytes.length);
+			ze.setCrc(crc.getValue());
+			zos.putNextEntry(ze);
+			zos.write(bytes, 0, bytes.length);
+			zos.flush();
+		    }
+		    zos.close();
+		    gzos.close();
+		    int len = bos.size();
+		    res.setHeader("content-encoding", "gzip");
+		    res.setHeader("content-type", "application/zip");
+		    res.sendResponseHeaders(200, bos.size());
+		    OutputStream os = res.getOutputStream();
+		    bos.writeTo(os);
+		    return;
+		}
+	    } else if (hasKey == null && pemreq == null) {
+		sendSimpleResponse(res, 400, "missing query fields");
 	    } else if (hasKey != null && pemreq != null) {
-		res.sendResponseHeaders(422, -1);
+		sendSimpleResponse(res, 400, "conflicting query fields");
 		return;
 		
 	    } else if (hasKey != null) {
 		if (publicKeyDir == null) {
-			res.sendResponseHeaders(501, -1);
-			return;
+		    sendSimpleResponse(res, 501, "no public key directory");
+		    return;
 		} else {
 		    File testf = new File(publicKeyDir, hasKey + ".pem");
 		    boolean status = false;
@@ -161,7 +220,7 @@ public class SigAdapter implements ServletAdapter {
 			}
 		    }
 		    if (status) {
-			res.sendResponseHeaders(200, -1);
+			res.sendResponseHeaders(204, -1);
 			return;
 		    } else {
 			res.sendResponseHeaders(404, -1);
@@ -201,7 +260,12 @@ public class SigAdapter implements ServletAdapter {
 		    if (rcode != 200) {
 			OutputStream nos = OutputStream.nullOutputStream();
 			is.transferTo(nos);
-			res.sendError(rcode);
+			sendSimpleResponse(res, rcode,
+					   "Could not load \r\n"
+					   + docurl + "\r\n"
+					   + " --- status was " + rcode
+					   + "\r\n");
+			// res.sendError(rcode);
 			return;
 		    }
 		    String mediaType = hurlc.getContentType();
@@ -222,7 +286,12 @@ public class SigAdapter implements ServletAdapter {
 			cache.put(digest, entry);
 			return;
 		    } else {
-			res.sendError(404);
+			// res.sendError(404);
+			sendSimpleResponse(res, 404,
+					       "Could not find document\r\n"
+					       + docurl + "\r\n"
+					       +"with SHA-256 digest"
+					       + digest + "\r\n");
 			return;
 		    }
 		} else {
@@ -240,7 +309,10 @@ public class SigAdapter implements ServletAdapter {
 		if (rcode != 200) {
 		    OutputStream nos = OutputStream.nullOutputStream();
 		    is.transferTo(nos);
-		    res.sendError(rcode);
+		    sendSimpleResponse(res, rcode,
+				       "Document server did not recognize\r\n"
+				       + docurl);
+		    // res.sendError(rcode);
 		    return;
 		}
 		String mediaType = hurlc.getContentType();
@@ -309,6 +381,10 @@ public class SigAdapter implements ServletAdapter {
 	if (sendto == null) {
 	    throw new ServletException("parameter 'sendto' is missing");
 	}
+	String cc = req.getParameter("cc");
+	if (cc != null) {
+	    cc = cc.strip().replaceAll("\\s","");
+	}
 	sendto = sendto.strip().replaceAll("\\s","");
 	String subject = req.getParameter("subject");
 	if (subject == null)
@@ -363,7 +439,11 @@ public class SigAdapter implements ServletAdapter {
 	    sb.append("email: "); sb.append(email); sb.append(CRLF);
 	    sb.append("server: "); sb.append(sigserver); sb.append(CRLF);
 	    sb.append("sendto: "); sb.append(sendto); sb.append(CRLF);
+	    if (cc != null) {
+		sb.append("cc: "); sb.append(cc); sb.append(CRLF);
+	    }
 	    sb.append("document: "); sb.append(document);sb.append(CRLF);
+	    sb.append("type: "); sb.append(type); sb.append(CRLF);
 	    sb.append("digest: "); sb.append(digest); sb.append(CRLF);
 	    sb.append("publicKeyID: "); sb.append(pemDigest); sb.append(CRLF);
 	    try {
@@ -380,7 +460,11 @@ public class SigAdapter implements ServletAdapter {
 		signer.update((email+CRLF).getBytes(UTF8));
 		signer.update((sigserver+CRLF).getBytes(UTF8));
 		signer.update((sendto+CRLF).getBytes(UTF8));
+		if (cc != null) {
+		    signer.update((cc+CRLF).getBytes(UTF8));
+		}
 		signer.update((document+CRLF).getBytes(UTF8));
+		signer.update((type + CRLF).getBytes(UTF8));
 		signer.update((digest+CRLF).getBytes(UTF8));
 		signer.update((pemDigest+CRLF).getBytes(UTF8));
 		sb.append("signature: ");
@@ -412,28 +496,13 @@ public class SigAdapter implements ServletAdapter {
 				  UTF8);
 	    tp.processTemplate(r, aw);
 	    aw.flush(); r.close(); aw.close();
-	    /*
-	    body.append("I, "); body.append(name);
-	    body.append(", agree to the ");
-	    body.append(type);
-	    body.append(" at ");
-	    body.append(document);
-	    body.append(CRLF);
-	    body.append("on "); body.append(timestamp);
-	    body.append(CRLF);
-	    body.append("The SHA-256 digest for the ");
-	    body.append(type);
-	    body.append(" is:");
-	    body.append(CRLF);
-	    body.append(digest);
-	    body.append(CRFL);
-	    body.append(CRFL);
-	    body.append(sb.toString());
-	    */
 	    String bodystr = body.toString();
 	    String encodedBody = URLEncoder.encode(bodystr, UTF8);
 	    HashMap<String,String> queryMap = new HashMap<>();
 	    queryMap.put("subject", subject);
+	    if (cc != null) {
+		queryMap.put("cc", cc);
+	    }
 	    queryMap.put("body", bodystr);
 	    String query = WebEncoder.formEncode(queryMap, false, UTF8)
 		.replaceAll("[+]", "%20");

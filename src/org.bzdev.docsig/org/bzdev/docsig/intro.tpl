@@ -3,7 +3,7 @@
   <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
+  <style type="text/css">
     BODY {
         background-color: $(bgcolor);
         color: $(color);
@@ -17,34 +17,39 @@
 
     li + li { margin-top: 10px;}
   </style>
-  <TITLE>Docsig Documentation</TITLE>
+  <TITLE>DOCSIG Documentation</TITLE>
   </head>
   <body>
-  <H1>Docsig Documentation</H1>
+  <H1>DOCSIG Documentation</H1>
     <P>
       Links:
       <UL>
 	<LI><A HREF="#intro">Introduction</A>.
 	<LI><A HREF="#forms">Forms</A>.
+	<LI><A HREF="#queries">Query strings<A>.
 	<LI><A HREF="#pem">PEM Encodings</A>.
 	<LI><A HREF="#config">Configuration</A>.
-	<LI><A HREF="#stgartup">Startup</A>.
+	<LI><A HREF="#startup">Startup</A>.
 	<LI><A HREF="#validation">Validation</A>.
 	  The following links can be used to install JAR files and
-	  API documentation:<P>
+	  to view or install API documentation:<P>
 	  <UL>
-	    <LI><A HREF="/api/api/index.html">API for validation</A>
+	    <LI><A HREF="/docsig-api/api/index.html">API for validation</A>
+	    <LI><A HREF="/bzdev-api/index.html">API for the BZDev
+		class library</A>
 	    <LI><A HREF="/jars/">JAR files for validation</A>.
-	    <LI><A HREF="/api.zip">ZIP file for installing API documentation</A>.
-	    <LI><A HREF="/jars.zip"> ZIP file for downloading JAR files</A>.
+	    <LI><A HREF="/docsig-api.zip">ZIP file for downloading the
+		API documentation</A>.
 	  </UL><P>
 	    <A HREF="#sha256">SHA-256 message digests</A> for JAR files
 	    should be checked.
-	<LI><A HREF="#source">Source code</A>.
+	    <LI><A HREF="#source">Source code</A>.
+	    <LI><A HREF="/PublicKeys">Public Keys</A> that have been
+	      created by this server.
       </UL>
-  <H1><A ID="intro"></A> Introduction</H1>
+      <H1><A ID="intro"></A> Introduction</H1>
     <P>
-      Docsig is a server that supports the use of digital
+      DOCSIG is a server that supports the use of digital
       signatures for simple documents that require a single
       signature. This server will respond to a request by
       generating a web page with a link to the document that
@@ -55,7 +60,7 @@
 
       <H1><A ID="forms"></A>HTML Forms</H1>
     <P>
-      To use Docsig, a web site has to return a
+      To use DOCSIG, a web site has to return a
       an HTML file containing an HTML form as shown below:
       <BLOCKQUOTE><PRE>
 
@@ -90,7 +95,7 @@
       <LI><A ID="TID">TRANSACTION_ID</A> is an optional transaction ID.
 	The field should be hidden, but may be reproduced text.
       <LI><A ID="DS_SERVER">DOCSIG_SERVER</A> is the the host name for
-	the Docsig server, optionally followed by a ":" and the TCP
+	the DOCSIG server, optionally followed by a ":" and the TCP
 	port number. The port number is required if a non-standard
 	port is used.
       <LI><A ID="type">TYPE</A> is the type of the document (e.g,
@@ -104,7 +109,7 @@
     </UL>
     <P>
       When a user clicks the 'Continue' button on the form shown above,
-      the Docsig server will respond by providing a web page that contains
+      the DOCSIG server will respond by providing a web page that contains
       a link to the document and its SHA-256 message digest. That link
       will either produce a document matching that message digest or will
       result in a 404 (Not Found) error.  When the 'Click to Send'
@@ -113,11 +118,68 @@
       text indicating that a specific document is being signed, plus
       some PEM encoded data used for processing.
 
+      <H1><A ID="queries">URL query strings</H1>
+      
+      URLs of the form
+      <BLOCKQUOTE>
+<A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>/docsig/?<A HREF="#QUERY">QUERY</A>
+	</BLOCKQUOTE>
+    <P>
+      are used to help validate signature. For these URLs, the '/' before
+      the '?' are needed.
+      The <A ID="QUERY">query strings</A> that are supported are the
+      following:
+      <UL>
+	<LI><STRONG>hasKeyRequest=DIGEST</STRONG>. The value
+	  <STRONG>DIGEST</STRONG> is the SHA=256 message digest of a public
+	  key, represented as a sequence of hexadecimal digits. The server
+	  will not return an object for this request but will instead return
+	  the following status codes:
+	  <UL>
+	    <LI><STRONG>204</STRONG>. The corresponding public key was found
+	    <LI><STRONG>404</STRONG>. The corresponding public key was not
+	      found.
+	    <LI><STRONG>501</STRONG>. This server does not have a public key
+	      directory.
+	  </UL>
+	<LI><STRONG>url=URL</STRONG>&amp;<STRONG>digest=DIGEST</STRONG>.
+	  The value <STRONG>URL</STRONG> is the URL of a document and the
+	  value <STRONG>DIGEST</STRONG> is the SHA-256 message digest of that
+	  document, represented as a sequence of hexadecimal digits. The
+	  server will return the following status codes:
+	  <UL>
+	    <LI><STRONG>200</STRONG>. The document was found and its
+	      SHA-256 digest is the one provided in the request. The
+	      document will be returned.
+	    <LI><STRONG>404</STRONG>. The document was not found or its
+	      SHA-256 digest is not the one provided in the request. An
+	      error message will be returned
+	    <LI>If the document specified by the URL cannot be found or
+	      if there is some other failure while fetching it, the status
+	      code provided by that server is used.
+	  </UL>
+	<LI><STRONG>publicKeyRequest=true</STRONG>. The current public
+	  key will be returned as PEM-encoded data with a header
+	  indicating the type of digital signature.  The status code
+	  is 200.
+	<LI><STRONG>getPublicKeys=true</STRONG>. A ZIP file containing
+	  all of the public keys (each as PEM-encoded data with a
+	  header indicating the type of digital signature) will be
+	  returned if the request can be satisfied. Otherwise an error
+	  message will be returned. The status codes are
+	  <UL>
+	    <LI><STRONG>200</STRONG>. The request was successful.
+	    <LI><STRONG>404</STRONG>. There is no public key directory
+	      directory.
+	  </UL>
+      </UL>
+
       <H1><A ID="pem"></A>PEM encodings</H1>
-      <P>
+    <P>
+      Email generated by DOCSIG includes a PEM-encoded section.
       When the PEM encoding is removed, the result is a GZIP-encoded
       file that contains several headers followed by a PEM-encoded public
-      key provide by the Docsig server. Each header name is followed
+      key provide by the DOCSIG server. Each header name is followed
       immediately by a colon and then a space. The value for the
       header is the text in the rest of the line, which is terminated
       by a carriage return followed by a line feed. The headers are
@@ -125,7 +187,7 @@
       <UL>
 	<LI><B>acceptedBy</B>. This is the user name entered in the form above.
 	<LI><B>date</B>. This is date the signature was generated.
-	<LI><B>ipaddr</B>. This is the IP address seen by the Docsig server when the
+	<LI><B>ipaddr</B>. This is the IP address seen by the DOCSIG server when the
 	  user submitted a request.
 	<LI><B>id</B>. This is the optional ID field. It may be an account/membership
 	  number, driver-license number, etc.  The only constraint is that
@@ -140,7 +202,9 @@
 	<LI><B>sendto</B>. This is the value of
 	  <A HREF="#emr">EMAIL_RECIPIENT</A>.
 	<LI><B>document</B>. This
-	is the URL for the document being signed.
+	  is the URL for the document being signed.
+	<LI><B>type</B>. This is the type of the document: for example,
+	  "document" or "waiver". 
 	<LI><B>digest</B>. This is the SHA-256 message digest of the document
 	  being signed (represented as a string of hexadecimal digits
 	  using lower-case letters).
@@ -177,9 +241,9 @@
 	  curl <A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>/PublicKey/<A HREF="#PKD">PK_DIGEST</A>.pem
 	  </PRE></BLOCKQUOTE> 
 	  will return a copy of the signature algorithm and the public
-	  key from the specified Docsig server and these should match
+	  key from the specified DOCSIG server and these should match
 	  the ones used.  The corresponding private key is kept on the
-	  Docsig server in memory and is never written to persistent
+	  DOCSIG server in memory and is never written to persistent
 	  storage.
 	<LI> The email addresses provided in the headers should match those
 	  in the email used to submit the signature.  While in principle
@@ -202,8 +266,8 @@
 	  The value returned may be a cached value, but the cache size
 	  is limited.
       </UL>
-      <H1><A ID="config"></A>Configuring the Docsig server</H1>
-      A Docsig server is configured used a configuration file that
+      <H1><A ID="config"></A>Configuring the DOCSIG server</H1>
+      A DOCSIG server is configured used a configuration file that
       provides a series of name-valued pairs:
       <UL>
 	<LI><A HREF="#colors">Configuring CSS colors</A> describes
@@ -299,18 +363,28 @@
 	      address.
 	  </UL>
 	<LI><B>port</B>. The value is the server&apos;s TCP port.  If missing
-	  the port is by default set to 8080 for HTTP and 8443 for HTTPS.
+	  the port is by default set to 80 for HTTP and 443 for HTTPS.
 	<LI><B>backlog</B>. When present, the value is an integer providing
 	  the <A HREF="https://veithen.io/2014/01/01/how-tcp-backlog-works-in-linux.html">TCP backlog</A>.
           The default value is 30.
 	<LI><B>nthreads</B>.
 	  The number of threads the server can use. The default is 50.
-	<LI><B>trace</B>.  A value of <B>true</B> indicates that the
+	<LI><B>trace</B>. A value of <B>true</B> indicates that the
 	  execution of a request will be traced, printing out what
 	  occurred on standard output.  The default is <B>false</B>.
+	<LI><B>stackTrace</B>. A value of <B>true</B> indicates that
+	  errors resulting from GET or POST methods will generate a
+	  stack trace.  The default is <B>false</B>.
       </UL>
 
-      <H1><A ID="startup"></A>Starting the Docsig server</H1>
+      <H1><A ID="startup"></A>Starting the DOCSIG server</H1>
+    <P>
+      There is a <A HREF="https://hub.docker.com/r/wtzbzdev/docsig">
+	DOCSIG docker image</A>, with instructions
+      on how to configure it. If docker is installed, this image can
+      be used to install and start a Docsig server. The remainder of
+      this section describes how to install and configure a DOCSIG
+      server directly.
     <P>
       If a directory DIR contains the files, or symbolic links to the
       files, one can run the command
@@ -322,7 +396,7 @@
       where
       <UL>
 	<LI><A ID="dir">DIR</A> is a directory containing the file, or symbolic
-	  links to the files, <B>docsig.jar</B>, <B>libbzdev-base.jar</B>,
+	  links to the files, <B>docsig-web.jar</B>, <B>libbzdev-base.jar</B>,
 	  and <B>libbzdev-ejws</B>.
 	<LI><A ID="wdir">WDIR</A> is a directory for files created by
 	  the server.  If this argument is missing, the server will
@@ -333,13 +407,20 @@
 	  configuration parameters, and specifically SSL will not be
 	  configured.
       </UL>
-      Alternatively, one can use Docker.
+    <P>
+      DOCSIG can also use environment variables to set up the configuration
+      file (mainly to simplify the use of Docker).  If the environment
+      variable "newDocsigConfig" has the value "true", the configuration file
+      <A HREF="#cfile">CFILE</A> will be created or overwritten. To add
+      lines to this file, set environment variables whose names are those
+      of the <A HREF="#PARMS">server parameters</A>. Each will be copied
+      to the configuration file.  The names are case-sensitive.
 
       <H1><A ID="validation"></A>Validating email</H1>
 
       If the email messages containing signatures are saved
       in the <STRONG>mbox</STRONG> format, these can be processed
-      using Docsig's validation software.
+      using DOCSIG's validation software.
 
       <H2>Installation</H2> To use the validation software, Java must
       be installed: at least Java 11 and preferably Java 17. If
@@ -417,6 +498,7 @@ results.forEach(function(result) {
     out.println("**** status = " + result.getStatus()
                 + ", sent from " + result.getEmailAddr()
                 + " by " + result.getEmailName());
+    out.println("**** reasons for failure = " + result.getReasons());
     out.println("**** message ID = " + result.getMessageID());
     list.forEach(function (name) {
         out.println(name + ": " + headers.getFirst(name));
@@ -440,7 +522,9 @@ results.forEach(function(result) {
 
     <P>
       The following script will print selected fields from signatures
-      in CSV format (generated using a class from the BZDev library),
+      in CSV format (generated using the
+  <A HREF="/bzdev-api/org.bzdev.base/org/bzdev/io/CSVWriter.html">CSVWriter</A>
+      class from the BZDev class library),
       one line per email:
       <BLOCKQUOTE><PRE>
 import (org.bzdev.docsig.verify.DocsigVerifier);
@@ -502,7 +586,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 
 <!--  LocalWords:  bgcolor linkColor visitedColor BLOCKQUOTE li px br
  -->
-<!--  LocalWords:  bquoteBGColor Docsig PEM Encodings SHA mailto http
+<!--  LocalWords:  bquoteBGColor DOCSIG PEM Encodings SHA mailto http
  -->
 <!--  LocalWords:  docsig transID sigserver sendto https TCP GZIP UTF
  -->
@@ -528,5 +612,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  getFirst csvw CSVWriter writeField bzdev JARFILE
  -->
-<!--  LocalWords:  api
+<!--  LocalWords:  api hasKeyRequest getPublicKeys stackTrace
+ -->
+<!--  LocalWords:  newDocsigConfig DOCSIG's getReasons
  -->

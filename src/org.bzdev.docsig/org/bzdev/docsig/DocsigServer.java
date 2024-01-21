@@ -8,6 +8,7 @@ import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import org.bzdev.ejws.*;
 import org.bzdev.ejws.maps.*;
 import org.bzdev.net.HttpMethod;
@@ -19,26 +20,36 @@ public class DocsigServer {
 
     static final Charset UTF8 = Charset.forName("UTF-8");
 
+    // Config names, used to check for misspellings in the
+    // configuration file.
+    static final Set<String> propertyNames =
+	 Set.of("color", "bgcolor", "linkColor", "visitedColor",
+		"buttonFGColor", "buggonBGColor", "bquoteBGColor",
+		"ipaddr", "port", "backlog", "nthreads",
+		"trace", "stackTrace",
+		"keyStoreFile", "trustStoreFile", "sslType",
+		"keyStorePassword", "trustStorePassword",
+		"allowLoopback", "allowSelfSigned");
+
     public static void main(String argv[]) throws Exception {
-	if (argv.length == 0)
+	boolean defaultTrace = false;
+	boolean defaultStacktrace = false;
+	int offset = 0;
+	if (argv.length > 0) {
+	    if (argv[0].equals("--stackTrace")) {
+		offset++;
+		defaultTrace = true;
+		defaultStacktrace = true;
+	    } else if (argv[0].equals("--trace")) {
+		offset++;
+		defaultTrace = true;
+	    }
+	}
+	if (argv.length == offset) {
 	    throw new IllegalStateException("no arguments");
+	}
 
         System.setProperty("java.awt.headless", "true");
-	/*
-
-        String s = System.getenv("PORT");
-        int port = (s == null)? 80: Integer.parseInt(s);
-        s = System.getenv("BACKLOG");
-        int backlog = (s == null)? 30: Integer.parseInt(s);
-        s = System.getenv("NTHREADS");
-        int nthreads = (s == null)? 50: Integer.parseInt(s);
-        s = System.getenv("TRACE");
-        boolean trace = (s == null)? false: Boolean.parseBoolean(s);
-        s = System.getProperty("IPADDR");
-        InetAddress addr = (s == null || s.equals("wildcard"))? null:
-            s.equalsIgnoreCase("loopback")? InetAddress.getLoopbackAddress():
-            InetAddress.getByName(s);
-	*/
 
 	// CSS colors.
 	String color = "white";
@@ -52,7 +63,8 @@ public class DocsigServer {
 	int port = 80;
 	int backlog = 30;
 	int nthreads = 50;
-	boolean trace = false;
+	boolean trace = defaultTrace;
+	boolean stacktrace = defaultStacktrace;
 	InetAddress addr = null;
 
 	EmbeddedWebServer.SSLSetup sslSetup = null;
@@ -64,11 +76,40 @@ public class DocsigServer {
 	boolean loopback = false;
 	boolean selfsigned = false;
 
-	if (argv.length > 1) {
-	    File propFile = new File(argv[1]);
+	File cdir = new File(System.getProperty("user.dir"));
+	File uadir = new File("/usr/app");
+	PrintStream log = (cdir.equals(uadir))?
+	    new PrintStream(new FileOutputStream(new File(uadir,
+							  "docsig.log")),
+			    true, UTF8):
+	    System.out;
+
+
+	// System.out.println("argv.length = " + argv.length);
+	// System.out.println("offset = " + offset);
+	// System.out.flush();
+	if (argv.length > 1 + offset) {
+	    File propFile = new File(argv[offset+1]);
+	    String newconfig = System.getenv("newDocsigConfig");
+	    if (newconfig!= null && newconfig.equals("true")) {
+		File  cf = new File("argv[offset+1]");
+		PrintWriter w = new PrintWriter(propFile, UTF8);
+		for (String name: propertyNames) {
+		    String value = System.getenv(name);
+		    if (value != null) {
+			w.println(name + " = " + value);
+		    }
+		}
+		w.flush();
+		w.close();
+		System.exit(0);
+	    }
+
+	    log.println("Config file  = " + propFile);
 	    File dir = propFile.getParentFile();
 	    if (dir == null) dir = new File(System.getProperty("user.dir"));
 	    if (propFile.canRead()) {
+		// System.out.println("propFile is readable");
 		Reader r = new FileReader(propFile, UTF8);
 		Properties props = new Properties();
 		props.load(r);
@@ -84,7 +125,16 @@ public class DocsigServer {
 		bquoteBGColor = props.getProperty("bquoteBGColor",
 						  bquoteBGColor);
 
+		log.println("color = " + color);
+		log.println("bgcolor = " + bgcolor);
+		log.println("linkColor = " + linkColor);
+		log.println("visitedColor = " + visitedColor);
+		log.println("buttonFGColor = " + buttonFGColor);
+		log.println("buttonBGColor = " + buttonBGColor);
+		log.println("bquoteBGColor = " + bquoteBGColor);
+
 		String s = props.getProperty("ipaddr");
+		log.println("ipaddr = " + s);
 		if (s != null) s = s.trim();
 		if (s == null || s.equalsIgnoreCase("wildcard")) {
 		    addr = null;
@@ -99,8 +149,20 @@ public class DocsigServer {
 		nthreads = (s == null)? nthreads: Integer.parseInt(s);
 		s = props.getProperty("trace");
 		trace = (s == null)? trace: Boolean.parseBoolean(s);
+		s = props.getProperty("stackTrace");
+		stacktrace = (s == null)? stacktrace: Boolean.parseBoolean(s);
+
+		log.println("backlog = " + backlog);
+		log.println("nthreads = " + nthreads);
+		log.println("trace = " + trace);
+		log.println("stackTrace = " + stacktrace);
+
+		// System.out.println("trace = " + trace);
+		// System.out.println("stacktrace = " + stacktrace);
+		// System.out.flush();
 
 		s = props.getProperty("keyStoreFile");
+		log.println("keyStoreFile = " + s);
 		if (s != null) {
 		    Path path = Path.of(s);
 		    if (path.isAbsolute()) {
@@ -111,6 +173,7 @@ public class DocsigServer {
 		    if (!keyStoreFile.canRead()) keyStoreFile = null;
 		}
 		s = props.getProperty("trustStoreFile");
+		log.println("trustStoreFile = " + s);
 		if (s != null) {
 		    Path path = Path.of(s);
 		    if (path.isAbsolute()) {
@@ -122,6 +185,7 @@ public class DocsigServer {
 		}
 		
 		s = props.getProperty("sslType");
+		log.println("sslType = " + s);
 		if (s == null || !(s.trim().length() == 0)
 		    || s.trim().equals("null")) {
 		    keyStoreFile = null;
@@ -134,188 +198,257 @@ public class DocsigServer {
 		} else {
 		    port = Integer.parseInt(s);
 		}
+		log.println("port = " + port);
+
 		s = props.getProperty("allowLoopback");
 		if (s != null && s.trim().equalsIgnoreCase("true")) {
 		    loopback = true;
 		}
+		log.println("allowLoopback = " + loopback);
 		s = props.getProperty("allowSelfSigned");
 		if (s != null && s.trim().equalsIgnoreCase("true")) {
 		    selfsigned = true;
 		}
+		log.println("allowSelfSigned = " + selfsigned);
 
 		s = props.getProperty("keyStorePassword");
 		keyStorePW = (s== null || keyStoreFile == null)? null:
 		    s.toCharArray();
+		log.println("keyStorePassword = "
+			    + ((keyStorePW == null)? "null": "<redacted>"));
 
 		s = props.getProperty("trustStorePassword");
 		trustStorePW = (s== null || trustStoreFile == null)? null:
 		    s.toCharArray();
-	    }
-	}
-
-	EmbeddedWebServer.SSLSetup sslsetup = null;
-	if (sslType != null) {
-	    if (loopback) {
-		SSLUtilities.allowLoopbackHostname();
-	    }
-	    if (selfsigned) {
-		SSLUtilities.installTrustManager(sslType,
-						 trustStoreFile, trustStorePW,
-						 (cert) -> {return true;});
-	    } else if (trustStoreFile != null) {
-		SSLUtilities.installTrustManager(sslType,
-						 trustStoreFile, trustStorePW,
-						 (cert) -> {return false;});
-	    }
-	    sslSetup = new EmbeddedWebServer.SSLSetup(sslType);
-	    if (keyStoreFile != null && keyStorePW != null) {
-		sslsetup.keystore(new FileInputStream(keyStoreFile))
-		    .keystorePassword(keyStorePW);
-	    }
-	    /*
-	     * We do not need a trust store because we don't requesat
-	     * client authentication.
-	    if (trustStoreFile != null && trustStorePW != null) {
-		sslsetup.truststore(new FileInputStream(trustStoreFile))
-		    .truststorePassword(trustStorePW);
-	    }
-	    */
-	}
-	keyStorePW = null;
-	trustStorePW = null;
-
-        EmbeddedWebServer ews = new
-            EmbeddedWebServer(addr, port, backlog, nthreads, sslSetup);
-
-	// ews.setRootColors(color, bgcolor, linkColor, visitedColor);
-
-	Map<String,String> parameters = new HashMap<>();
-
-	if (argv.length > 0) {
-	    String fs = System.getProperty("file.separator");
-	    fs = argv[0].endsWith(fs)? "": fs;
-	    parameters.put("publicKeyDir", argv[0] + fs + "PublicKeys");
-	}
-
-	parameters.put("color", color);
-	parameters.put("bgcolor", bgcolor);
-	parameters.put("linkColor", linkColor);
-	parameters.put("visitedColor", visitedColor);
-	parameters.put("buttonFGColor", buttonFGColor);
-	parameters.put("buttonBGColor", buttonBGColor);
-	parameters.put("bquoteBGColor", bquoteBGColor);
-
-	ews.add("/docsig", ServletWebMap.class,
-		new ServletWebMap.Config(new SigAdapter(),
-					 parameters, true,
-					 HttpMethod.GET,
-					 HttpMethod.POST,
-					 HttpMethod.HEAD,
-					 HttpMethod.OPTIONS,
-					 HttpMethod.TRACE),
-		null, true, false, true);
-
-	if (argv.length > 0) {
-	    File f = new File(argv[0]);
-	    f.mkdirs();
-
-	    TemplateProcessor.KeyMap keymap = new TemplateProcessor.KeyMap();
-	    keymap.put("color", color);
-	    keymap.put("bgcolor", bgcolor);
-	    keymap.put("linkColor", linkColor);
-	    keymap.put("visitedColor", visitedColor);
-	    keymap.put("bquoteBGColor", bquoteBGColor);
-
-	    String[] resourceNames = {
-		"docsig-verify",
-		"libbzdev-base",
-		"libbzdev-esp",
-		"libbzdev-math",
-		"libbzdev-obnaming",
-		"scrunner",
-	    };
-	    
-	    TemplateProcessor.KeyMapList kmlist =
-		new TemplateProcessor.KeyMapList();
-	    Properties jarprops = new Properties();
-	    for (String name: resourceNames) {
-		String nm = name + ".jar";
-		InputStream ris = DocsigServer.class
-		    .getResourceAsStream(nm);
-		if (ris == null) {
-		    System.out.println("could not open " + nm);
+		log.println("trustStorePassword = "
+			    + ((trustStorePW == null)? "null": "<redacted>"));
+		for (String key: props.stringPropertyNames()) {
+		    if (!propertyNames.contains(key)) {
+			log.println("Warning: config property \"" + key
+				    + "\" not recognized.");
+		    }
 		}
-		ByteArrayOutputStream ros = new ByteArrayOutputStream(4096);
-		ris.transferTo(ros);
-		byte[] array = ros.toByteArray();
-		jarprops.put(nm, array);
-		MessageDigest md = SigAdapter.createMD();
-		md.update(array);
-		
-		TemplateProcessor.KeyMap rkeymap =
-		    new TemplateProcessor.KeyMap();
-		rkeymap.put("name", nm);
-		rkeymap.put("md", SigAdapter.bytesToHex(md.digest()));
-		kmlist.addLast(rkeymap);
+
+	    } else {
+		log.println("cannot read config file " + propFile);
+		// System.out.println("propFile is not readable");
+		// System.out.flush();
 	    }
-	    keymap.put("jars", kmlist);
-
-	    TemplateProcessor tp = new TemplateProcessor(keymap);
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream(2048);
-	    Writer w = new OutputStreamWriter(baos, UTF8);
-					      
-	    Reader r = new
-		InputStreamReader(DocsigServer.class
-				  .getResourceAsStream("intro.tpl"),
-				  UTF8);
-	    tp.processTemplate(r, w);
-	    w.flush();
-	    /*
-	    InputStream is = DocsigServer.class
-		.getResourceAsStream("intro.html");
-	    */
-	    File target = new File(f, "intro.html");
-	    OutputStream os = new FileOutputStream(target);
-	    baos.writeTo(os);
-	    // is.transferTo(os);
-	    r.close();
-	    os.flush();
-	    os.close();
-	    ews.add("/", DirWebMap.class,
-		    new DirWebMap.Config(f, color, bgcolor,
-					 linkColor, visitedColor),
-		    null, true, true, false);
-
-	    target = new File(f, "api.zip");
-	    InputStream zis = DocsigServer.class
-		.getResourceAsStream("api.zip");
-	    FileOutputStream zos = new FileOutputStream(target);
-	    zis.transferTo(zos);
-	    zos.flush(); zos.close();
-
-	    ews.add("/api/", ZipWebMap.class,
-		    target, null, true, true, false);
-	    
-	    for (String name: resourceNames) {
-		String nm = name + ".jar";
-		zis = DocsigServer.class.getResourceAsStream(nm);
-		ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
-		zis.transferTo(bos);
-		jarprops.put(nm, bos.toByteArray());
-	    }
-	    ews.add("/jars/", PropertiesWebMap.class,
-		    new PropertiesWebMap.Config(jarprops, color, bgcolor,
-						linkColor, visitedColor),
-		    null, true, true, false);
-
-	    WebMap wmap = ews.getWebMap("/");
-	    wmap.addMapping("pem", "application/x-pem-file");
 	}
+		    
+	EmbeddedWebServer.SSLSetup sslsetup = null;
+	try {
+	    if (sslType != null) {
+		if (loopback) {
+		    SSLUtilities.allowLoopbackHostname();
+		}
+		if (selfsigned) {
+		    SSLUtilities.installTrustManager(sslType,
+						     trustStoreFile,
+						     trustStorePW,
+						     (cert) -> {return true;});
+		} else if (trustStoreFile != null) {
+		    SSLUtilities.installTrustManager(sslType,
+						     trustStoreFile,
+						     trustStorePW,
+						     (cert) -> {return false;});
+		}
+		sslSetup = new EmbeddedWebServer.SSLSetup(sslType);
+		if (keyStoreFile != null && keyStorePW != null) {
+		    // https://blog.syone.com/how-to-build-a-java-keystore-alias-with-a-complete-certificate-chain
+		    // indicates how to set up a keystore so it contains
+		    // the full certificate chain.
 
-        if (trace) {
-            ews.setTracer("/", System.out, true);
-            ews.setTracer("/docsig/", System.out, true);
-        }
-        ews.start();
+		    sslsetup.keystore(new FileInputStream(keyStoreFile))
+			.keystorePassword(keyStorePW);
+		}
+		/*
+		 * We do not need a trust store because we don't requesat
+		 * client authentication.
+		 */
+	    }
+	    keyStorePW = null;
+	    trustStorePW = null;
+
+	    EmbeddedWebServer ews = new
+		EmbeddedWebServer(addr, port, backlog, nthreads, sslSetup);
+
+	    ews.setRootColors(color, bgcolor, linkColor, visitedColor);
+
+	    Map<String,String> parameters = new HashMap<>();
+
+	    if (argv.length > offset) {
+		String fs = System.getProperty("file.separator");
+		fs = argv[offset].endsWith(fs)? "": fs;
+		parameters.put("publicKeyDir", argv[offset]
+			       + fs + "PublicKeys");
+	    }
+
+	    parameters.put("color", color);
+	    parameters.put("bgcolor", bgcolor);
+	    parameters.put("linkColor", linkColor);
+	    parameters.put("visitedColor", visitedColor);
+	    parameters.put("buttonFGColor", buttonFGColor);
+	    parameters.put("buttonBGColor", buttonBGColor);
+	    parameters.put("bquoteBGColor", bquoteBGColor);
+
+	    ews.add("/docsig", ServletWebMap.class,
+		    new ServletWebMap.Config(new SigAdapter(),
+					     parameters, true,
+					     HttpMethod.GET,
+					     HttpMethod.POST,
+					     HttpMethod.HEAD,
+					     HttpMethod.OPTIONS,
+					     HttpMethod.TRACE),
+		    null, true, false, true);
+
+	    if (argv.length > offset) {
+		File f = new File(argv[offset]);
+		f.mkdirs();
+
+		TemplateProcessor.KeyMap keymap =
+		    new TemplateProcessor.KeyMap();
+		keymap.put("color", color);
+		keymap.put("bgcolor", bgcolor);
+		keymap.put("linkColor", linkColor);
+		keymap.put("visitedColor", visitedColor);
+		keymap.put("bquoteBGColor", bquoteBGColor);
+
+		String[] resourceNames = {
+		    "docsig-verify",
+		    "libbzdev-base",
+		    "libbzdev-esp",
+		    "libbzdev-math",
+		    "libbzdev-obnaming",
+		    "scrunner",
+		};
+	    
+		TemplateProcessor.KeyMapList kmlist =
+		    new TemplateProcessor.KeyMapList();
+		Properties jarprops = new Properties();
+		for (String name: resourceNames) {
+		    String nm = name + ".jar";
+		    InputStream ris = DocsigServer.class
+			.getResourceAsStream(nm);
+		    if (ris == null) {
+			// System.out.println("could not open " + nm);
+		    }
+		    ByteArrayOutputStream ros = new ByteArrayOutputStream(4096);
+		    ris.transferTo(ros);
+		    byte[] array = ros.toByteArray();
+		    jarprops.put(nm, array);
+		    MessageDigest md = SigAdapter.createMD();
+		    md.update(array);
+		
+		    TemplateProcessor.KeyMap rkeymap =
+			new TemplateProcessor.KeyMap();
+		    rkeymap.put("name", nm);
+		    rkeymap.put("md", SigAdapter.bytesToHex(md.digest()));
+		    kmlist.addLast(rkeymap);
+		}
+		keymap.put("jars", kmlist);
+
+		TemplateProcessor tp = new TemplateProcessor(keymap);
+		ByteArrayOutputStream baos = new ByteArrayOutputStream(2048);
+		Writer w = new OutputStreamWriter(baos, UTF8);
+					      
+		Reader r = new
+		    InputStreamReader(DocsigServer.class
+				      .getResourceAsStream("intro.tpl"),
+				      UTF8);
+		tp.processTemplate(r, w);
+		w.flush();
+		/*
+		  InputStream is = DocsigServer.class
+		  .getResourceAsStream("intro.html");
+		*/
+		File target = new File(f, "intro.html");
+		OutputStream os = new FileOutputStream(target);
+		baos.writeTo(os);
+		// is.transferTo(os);
+		r.close();
+		os.flush();
+		os.close();
+		ews.add("/", DirWebMap.class,
+			new DirWebMap.Config(f, color, bgcolor,
+					     linkColor, visitedColor),
+			null, true, true, false);
+
+		ews.getWebMap("/").addWelcome("intro.html");
+
+		target = new File(f, "docsig-api.zip");
+		InputStream zis = DocsigServer.class
+		    .getResourceAsStream("api.zip");
+		FileOutputStream zos = new FileOutputStream(target);
+		zis.transferTo(zos);
+		zos.flush(); zos.close();
+
+		ews.add("/api/", ZipWebMap.class,
+			new ZipWebMap.Config(target, color, bgcolor,
+					     linkColor, visitedColor),
+			null, true, true, false);
+	    
+		// See if this fixes a firefox problem with
+		// text fields in the 'search' box.
+		// WebMap wm = ews.getWebMap("/api/");
+		// wmap.addMapping("js", "application/x-javascript");
+
+		// Add BZDEV API documentation. It may be in a directory
+		// or a ZIP file.
+		File bzdevapi = new File ("/usr/share/doc/libbzdev-doc/api");
+		if (bzdevapi.isDirectory()) {
+		    ews.add("/bzdev-api/", DirWebMap.class,
+			    new DirWebMap.Config(bzdevapi, color, bgcolor,
+					     linkColor, visitedColor),
+			    null, true, true, false);
+		} else {
+		    bzdevapi = new File("/usr/share/doc/libbzdev-doc/api.zip");
+		    if (bzdevapi.canRead()) {
+			ews.add("/bzdev-api/", ZipWebMap.class,
+				new ZipWebMap.Config(bzdevapi, color, bgcolor,
+						     linkColor, visitedColor),
+				null, true, true, false);
+		    }
+		}
+		// wm = ews.getWebMap("/bzdev-api/");
+		// wm.addMapping("js", "application/x-javascript");
+
+		for (String name: resourceNames) {
+		    String nm = name + ".jar";
+		    zis = DocsigServer.class.getResourceAsStream(nm);
+		    ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
+		    zis.transferTo(bos);
+		    jarprops.put(nm, bos.toByteArray());
+		}
+		ews.add("/jars/", PropertiesWebMap.class,
+			new PropertiesWebMap.Config(jarprops, color, bgcolor,
+						    linkColor, visitedColor),
+			null, true, true, false);
+
+		WebMap wmap = ews.getWebMap("/");
+		wmap.addMapping("pem", "application/x-pem-file");
+	    }
+	    log.println("trace = " + trace);
+	    log.println("stacktrace = " + stacktrace);
+	    if (trace) {
+		ews.setTracer("/", log, false);
+		ews.setTracer("/docsig/", log, stacktrace);
+		ews.setTracer("/bzdev-api/", log,  false);
+		ews.setTracer("/api/", log, false);
+		ews.setTracer("/jars/", log, false);
+	    }
+	    ews.start();
+	} catch (Exception ex) {
+	    log.println("Exception terminating server was thrown:");
+	    ex.printStackTrace(log);
+	    if (ex.getCause() != null) {
+		Throwable t = ex;
+		while ((t = t.getCause()) != null) {
+		    log.println("----");
+		    t.printStackTrace(log);
+		}
+		log.println("-------------");
+	    }
+	}
     }
 }
