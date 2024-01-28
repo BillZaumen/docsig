@@ -78,10 +78,11 @@ public class DocsigServer {
 
 	File cdir = new File(System.getProperty("user.dir"));
 	File uadir = new File("/usr/app");
-	PrintStream log = (cdir.equals(uadir))?
-	    new PrintStream(new FileOutputStream(new File(uadir,
-							  "docsig.log")),
-			    true, UTF8):
+	File logFile = (cdir.equals(uadir))? new File(uadir, "docsig.log"):
+	    null;
+
+	PrintStream log = (logFile != null)?
+	    new PrintStream(new FileOutputStream(logFile), true, UTF8):
 	    System.out;
 
 
@@ -258,6 +259,8 @@ public class DocsigServer {
 		    // https://blog.syone.com/how-to-build-a-java-keystore-alias-with-a-complete-certificate-chain
 		    // indicates how to set up a keystore so it contains
 		    // the full certificate chain.
+		    // Also see
+		    // https://serverfault.com/questions/483465/import-of-pem-certificate-chain-and-key-to-java-keystore
 
 		    sslsetup.keystore(new FileInputStream(keyStoreFile))
 			.keystorePassword(keyStorePW);
@@ -291,6 +294,11 @@ public class DocsigServer {
 	    parameters.put("buttonFGColor", buttonFGColor);
 	    parameters.put("buttonBGColor", buttonBGColor);
 	    parameters.put("bquoteBGColor", bquoteBGColor);
+	    if (logFile != null) {
+		String logPath = logFile.getCanonicalPath();
+		parameters.put("logFile", logPath);
+		log.println("logFile = " + logPath);
+	    }
 
 	    ews.add("/docsig", ServletWebMap.class,
 		    new ServletWebMap.Config(new SigAdapter(),
@@ -383,7 +391,7 @@ public class DocsigServer {
 		zis.transferTo(zos);
 		zos.flush(); zos.close();
 
-		ews.add("/api/", ZipWebMap.class,
+		ews.add("/docsig-api/", ZipWebMap.class,
 			new ZipWebMap.Config(target, color, bgcolor,
 					     linkColor, visitedColor),
 			null, true, true, false);
@@ -449,6 +457,7 @@ public class DocsigServer {
 		}
 		log.println("-------------");
 	    }
+	    log.flush();
 	}
     }
 }

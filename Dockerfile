@@ -1,4 +1,4 @@
-FROM wtzbzdev/ejws:17-jre-jammy
+FROM wtzbzdev/ejws:17-jre-alpine
 
 RUN mkdir -p /usr/share/doc/libbzdev-doc
 

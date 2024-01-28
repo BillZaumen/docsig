@@ -50,7 +50,8 @@ public class DocsigVerifier {
 		  "Message-ID: ",
 		  "Content-Transfer-Encoding: ",
 		  "\n\r\n",
-		  "\n\n");
+		  "\n\n",
+		  "Content-Type: ");
 
     private static enum State {
 	START,
@@ -467,6 +468,7 @@ public class DocsigVerifier {
 	String fromEmail = null;
 	String messageID = null;
 	boolean quotedPrintable = false;
+	boolean multipart = false;
 	for (MatchResult mr: matcher.iterableOver(buffer)) {
 	    int index = mr.getIndex();
 	    switch(state) {
@@ -482,6 +484,8 @@ public class DocsigVerifier {
 		    messageID = null;
 		    msgStart = -1;
 		    msgEnd = -1;
+		    quotedPrintable = false;
+		    multipart = false;
 		    int ind = buffer.indexOf("\n", mr.getStart());
 		    String s = buffer.substring(mr.getStart()+5, ind)
 			.trim();
@@ -513,6 +517,10 @@ public class DocsigVerifier {
 		    state = State.FOUND_FROM;
 		    fromName = null;
 		    messageID = null;
+		    msgStart = -1;
+		    msgEnd = -1;
+		    quotedPrintable = false;
+		    multipart = false;
 		    int ind = buffer.indexOf("\n", mr.getStart());
 		    String s = buffer.substring(mr.getStart()+5, ind)
 			.trim();
@@ -572,6 +580,19 @@ public class DocsigVerifier {
 		    }
 		} else if (msgStart == -1 && (index == 6 || index == 7)) {
 		    msgStart = mr.getEnd();
+		} else if (index == 8) {
+		    int sind = mr.getStart();
+		    if (sind > 0) {
+			if (buffer.charAt(sind-1) != '\n') continue;
+		    }
+		    int ind = buffer.indexOf("\n", mr.getStart());
+		    if (ind != -1) {
+			String s = buffer.substring(mr.getEnd(), ind)
+			    .trim().toLowerCase(Locale.US);
+			if (s.startsWith("multipart")) {
+			    multipart = true;
+			}
+		    }
 		}
 		break;
 	    case FOUND_BEGIN:
@@ -596,6 +617,11 @@ public class DocsigVerifier {
 			result.addToReasons("NoMessageBody");
 		    } else {
 			s = buffer.substring(msgStart, msgEnd);
+			if (multipart && (s.startsWith("\r\n--")
+					  || s.startsWith("--"))) {
+			    int ind = s.indexOf("\r\n\r\n");
+			    s = s.substring(ind+4);
+			}
 			if (quotedPrintable) {
 			    s = s.replace("=\r\n","");
 			    // regularize for a test.
@@ -609,15 +635,20 @@ public class DocsigVerifier {
 			String md = hdrs.getFirst("digest");
 			String document = hdrs.getFirst("document"); 
 			String type = hdrs.getFirst("type");
+			String sigserver = hdrs.getFirst("server");
 			if (quotedPrintable) {
-			    nm = pqEncode(nm);
-			    type = pqEncode(type);
-			    document = pqEncode(document);
+			    nm = (nm == null)? null: pqEncode(nm);
+			    type = (type == null)? null: pqEncode(type);
+			    document = (document == null)? null:
+				pqEncode(document);
+			    sigserver = (sigserver == null)? null:
+				pqEncode(sigserver);
 			}
 			KeyMap keymap = new KeyMap();
 			keymap.put("name", nm);
 			keymap.put("type", type);
 			keymap.put("document", document);
+			keymap.put("sigserver", sigserver);
 			keymap.put("digest", md);
 			keymap.put("PEM", PEM_START);
 			TemplateProcessor tp = new TemplateProcessor(keymap);
@@ -652,6 +683,10 @@ public class DocsigVerifier {
 		    state = State.FOUND_FROM;
 		    fromName = null;
 		    messageID = null;
+		    msgStart = -1;
+		    msgEnd = -1;
+		    quotedPrintable = false;
+		    multipart = false;
 		    int ind = buffer.indexOf("\n", mr.getStart());
 		    String s = buffer.substring(mr.getStart()+5, ind)
 			.trim();

@@ -9,7 +9,7 @@ var err = global.getErrorWriter();
 var results = decodeFromMbox(in, err);
 
 var list = ["acceptedBy", "date", "ipaddr", "id",
-	    "transID", "email", "server", "sendto",
+	    "transID", "email", "server", "sendto", "cc",
 	    "document", "type", "digest", "publicKeyID"];
 
 results.forEach(function(result) {

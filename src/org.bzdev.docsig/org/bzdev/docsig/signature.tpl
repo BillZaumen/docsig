@@ -19,16 +19,17 @@
     <P> This page was produced by $(sigserver) --- the following
       link will display the $(type) to be signed:
       <BLOCKQUOTE>
-<A HREF="$(sigserver)/sigrequest?url=$(document)&digest=$(digest)">$(document)</A>
+<A HREF="$(document)">$(document)</A>
       </BLOCKQUOTE>
-	and its SHA-256 message digest is
+	and its SHA-256 message digest, is
       <BLOCKQUOTE>
- $(digest)
+<A HREF="$(sigserver)?url=$(encDocument)&digest=$(digest)">$(digest)</A>
       </BLOCKQUOTE>
     <P>
       To sign the $(type), click the following button. This should open an
       email window with everything filled out.  If possible, please send it
-      with a GPG or PGP signature. The signature will not be valid if the
+      with a GPG or PGP signature and also compute the SHA-256 digest
+      independently. The submission will not be valid if the
       text of the email is modified.
     <P><br>
     <A href="mailto:$(sendto)?$(query)"

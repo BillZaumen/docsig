@@ -52,6 +52,11 @@ public class SigAdapter implements ServletAdapter {
 
     static final String CRLF = "\r\n";
 
+    // When running in a container, localhost may refer to the
+    // contain's localhost, not the system localhost, so we have
+    // to modify it.
+    static final String DOCSIG_LOCALHOST = System.getenv("DOCSIG_LOCALHOST");
+
     static String bytesToHex(byte[] bytes) {
 	final char[] hexArray = {'0','1','2','3','4','5','6','7','8','9',
 				 'a','b','c','d','e','f'};
@@ -91,6 +96,7 @@ public class SigAdapter implements ServletAdapter {
     String buttonBGColor = null;
     String bquoteBGColor = null;
     File publicKeyDir = null;
+    File logFile = null;
 
     @Override
     public void init(Map<String,String>parameters)
@@ -107,6 +113,8 @@ public class SigAdapter implements ServletAdapter {
 	buttonFGColor = parameters.get("buttonFGColor");
 	buttonBGColor = parameters.get("buttonBGColor");
 	bquoteBGColor = parameters.get("bquoteBGColor");
+	String logFileName = parameters.get("logFile");
+	logFile = (logFileName != null)? new File(logFileName): null;
 
 	String keydir = parameters.get("publicKeyDir");
 	if (keydir != null) {
@@ -118,11 +126,13 @@ public class SigAdapter implements ServletAdapter {
 		md.update(contents);
 		String fname = bytesToHex(md.digest()) + ".pem";
 		try {
-		    OutputStream os = new
-			FileOutputStream(new File(publicKeyDir, fname));
-		    os.write(contents);
-		    os.flush();
-		    os.close();
+		    File keyf = new File(publicKeyDir, fname);
+		    if (!keyf.exists()) {
+			OutputStream os = new FileOutputStream(keyf);
+			os.write(contents);
+			os.flush();
+			os.close();
+		    }
 		} catch (Exception e) {
 		    throw new ServletAdapter.ServletException
 			("Cannot create PEM file", e);
@@ -148,25 +158,59 @@ public class SigAdapter implements ServletAdapter {
     public void doGet(HttpServerRequest req, HttpServerResponse res)
 	throws IOException, ServletAdapter.ServletException
     {
+	if (req.getParameter("document") != null) {
+	    // Generally one should use a POST method to create the
+	    // respose document because the response inculdes a timestamp.
+	    // DOCSERVER allows a GET method as well so a server can
+	    // generate an HTTP redirect so that a user does not have
+	    // to submit a form.
+	    res.setHeader("cache-control", "no-cache");
+	    doPost(req, res);
+	    return;
+	}
+
 	String hasKey = req.getParameter("hasKeyRequest");
 	String docurl = req.getParameter("url");
 	String digest = req.getParameter("digest");
 	String pemreq = req.getParameter("publicKeyRequest");
 	String getreq = req.getParameter("getPublicKeys");
+	String getlog = req.getParameter("getLog");
 	docurl = (docurl == null)? null: docurl.trim();
 	digest = (digest == null)? null: digest.trim().toLowerCase();
 	pemreq = (pemreq == null)? null: pemreq.trim();
 	getreq = (getreq == null)? null: getreq.trim().toLowerCase();
+	getlog = (getlog == null)? null: getlog.trim().toLowerCase();
+	if (getreq != null && !getreq.equals("true")) getreq = null;
+	if (getlog != null && !getlog.equals("true")) getlog = null;
+
 	if (docurl == null || digest == null) {
-	    
-	    if (getreq != null && getreq.length() != 0) {
+	    if (getlog != null) {
+		if (hasKey != null || docurl != null || digest != null
+		    || pemreq != null || getreq != null) {
+		    sendSimpleResponse(res, 400,
+				       "conflicting query fields\r\n");
+		    return;
+		} else if (logFile == null) {
+		    sendSimpleResponse(res, 404, "no log file\r\n");
+		    return;
+		}
+		FileReader r = new FileReader(logFile, UTF8);
+		StringWriter w = new StringWriter(4096);
+		r.transferTo(w);
+		res.setHeader("cache-control", "no-cache");
+		sendSimpleResponse(res, 200, w.toString());
+		return;
+	    } else if (getreq != null) {
 		if (hasKey != null || docurl != null || digest != null
 		    || pemreq != null) {
-		    sendSimpleResponse(res, 400, "conflicting query fields");
+		    sendSimpleResponse(res, 400,
+				       "conflicting query-string fields\r\n");
+		    return;
 		} else {
 		    // Get a zip file for the public key files
 		    if (publicKeyDir == null) {
-			sendSimpleResponse(res, 404, "no public key directory");
+			sendSimpleResponse(res, 404,
+					   "no public key directory\r\n");
 			return;
 		    }
 		    ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
@@ -201,14 +245,16 @@ public class SigAdapter implements ServletAdapter {
 		    return;
 		}
 	    } else if (hasKey == null && pemreq == null) {
-		sendSimpleResponse(res, 400, "missing query fields");
+		sendSimpleResponse(res, 400, "missing query-string fields\r\n");
+		return;
 	    } else if (hasKey != null && pemreq != null) {
-		sendSimpleResponse(res, 400, "conflicting query fields");
+		sendSimpleResponse(res, 400,
+				   "conflicting query-string fields\r\n");
 		return;
 		
 	    } else if (hasKey != null) {
 		if (publicKeyDir == null) {
-		    sendSimpleResponse(res, 501, "no public key directory");
+		    sendSimpleResponse(res, 501, "no public key directory\r\n");
 		    return;
 		} else {
 		    File testf = new File(publicKeyDir, hasKey + ".pem");
@@ -237,6 +283,10 @@ public class SigAdapter implements ServletAdapter {
 		os.close();
 		return;
 	    }
+	} else if (getlog != null || getreq != null || pemreq != null
+		   || hasKey != null) {
+	    sendSimpleResponse(res, 400, "conflicting query-string fields\r\n");
+	    return;
 	}
 	Entry entry = cache.get(digest);
 	if (entry != null) {
@@ -251,21 +301,36 @@ public class SigAdapter implements ServletAdapter {
 		return;
 	    } else {
 		URL url = new URL(docurl);
+		String host = url.getHost();
+		if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+		    url = new URL(url.getProtocol(),
+				  DOCSIG_LOCALHOST,
+				  url.getPort(),
+				  url.getFile());
+		}
 		URLConnection urlc = url.openConnection();
 		if (urlc instanceof HttpURLConnection) {
 		    HttpURLConnection hurlc = (HttpURLConnection) urlc;
-		    hurlc.connect();
-		    int rcode = hurlc.getResponseCode();
-		    InputStream is  = hurlc.getInputStream();
-		    if (rcode != 200) {
-			OutputStream nos = OutputStream.nullOutputStream();
-			is.transferTo(nos);
-			sendSimpleResponse(res, rcode,
-					   "Could not load \r\n"
-					   + docurl + "\r\n"
-					   + " --- status was " + rcode
-					   + "\r\n");
-			// res.sendError(rcode);
+		    InputStream is = null;
+		    try {
+			hurlc.connect();
+			int rcode = hurlc.getResponseCode();
+			is  = hurlc.getInputStream();
+			if (rcode != 200) {
+			    OutputStream nos = OutputStream.nullOutputStream();
+			    is.transferTo(nos);
+			    sendSimpleResponse(res, rcode,
+					       "Could not load \r\n"
+					       + docurl + "\r\n"
+					       + " --- status was " + rcode
+					       + "\r\n");
+			    // res.sendError(rcode);
+			    return;
+			}
+		    } catch (IOException eio) {
+			sendSimpleResponse(res, 404,
+					   "could not load " + docurl
+					   +"\r\n error [1]: " + eio.getMessage());
 			return;
 		    }
 		    String mediaType = hurlc.getContentType();
@@ -300,19 +365,36 @@ public class SigAdapter implements ServletAdapter {
 	    }
 	} else {
 	    URL url = new URL(docurl);
+	    String host = url.getHost();
+	    if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+		url = new URL(url.getProtocol(),
+			      DOCSIG_LOCALHOST,
+			      url.getPort(),
+			      url.getFile());
+	    }
+
 	    URLConnection urlc = url.openConnection();
 	    if (urlc instanceof HttpURLConnection) {
 		HttpURLConnection hurlc = (HttpURLConnection) urlc;
-		hurlc.connect();
-		int rcode = hurlc.getResponseCode();
-		InputStream is  = hurlc.getInputStream();
-		if (rcode != 200) {
-		    OutputStream nos = OutputStream.nullOutputStream();
-		    is.transferTo(nos);
-		    sendSimpleResponse(res, rcode,
-				       "Document server did not recognize\r\n"
-				       + docurl);
-		    // res.sendError(rcode);
+		InputStream is = null;
+		try {
+		    hurlc.connect();
+		    int rcode = hurlc.getResponseCode();
+		    is  = hurlc.getInputStream();
+		    if (rcode != 200) {
+			OutputStream nos = OutputStream.nullOutputStream();
+			is.transferTo(nos);
+			sendSimpleResponse(res, rcode,
+					   "Document server did not"
+					   + " recognize\r\n"
+					   + docurl);
+			// res.sendError(rcode);
+			return;
+		    }
+		} catch (IOException eio) {
+		    sendSimpleResponse(res, 404,
+				       "could not load " + docurl
+				       +"\r\n error [2]: " + eio.getMessage());
 		    return;
 		}
 		String mediaType = hurlc.getContentType();
@@ -369,6 +451,10 @@ public class SigAdapter implements ServletAdapter {
 	if (sigserver == null)
 	    throw new ServletException("parameter 'sigserver' is missing");
 	sigserver = sigserver.strip().replaceAll("\\s","");
+	if (!sigserver.endsWith("/")) {
+	    // This implementation requires a "/" before the query string.
+	    sigserver = sigserver + "/";
+	}
 	String type = req.getParameter("type");
 	if (type == null)
 	    throw new ServletException("parameter 'type' is missing");
@@ -402,16 +488,31 @@ public class SigAdapter implements ServletAdapter {
 	    throw new ServletException("missing post data");
 	}
 	URL url = new URL(document);
+	String host = url.getHost();
+	if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+	    url = new URL(url.getProtocol(),
+			  DOCSIG_LOCALHOST,
+			  url.getPort(),
+			  url.getFile());
+	}
 	URLConnection urlc = url.openConnection();
 	if (urlc instanceof HttpURLConnection) {
 	    HttpURLConnection hurlc = (HttpURLConnection) urlc;
-	    hurlc.connect();
-	    InputStream is  = hurlc.getInputStream();
-	    int rcode = hurlc.getResponseCode();
-	    if (rcode != 200) {
-		OutputStream nos = OutputStream.nullOutputStream();
-		is.transferTo(nos);
-		res.sendError(rcode);
+	    InputStream is = null;
+	    try {
+		hurlc.connect();
+		is  = hurlc.getInputStream();
+		int rcode = hurlc.getResponseCode();
+		if (rcode != 200) {
+		    OutputStream nos = OutputStream.nullOutputStream();
+		    is.transferTo(nos);
+		    res.sendError(rcode);
+		    return;
+		}
+	    } catch (IOException eio) {
+		sendSimpleResponse(res, 404,
+				   "could not load " + document
+				   +"\r\n error [3]: " + eio.getMessage());
 		return;
 	    }
 	    String mediaType = hurlc.getContentType();
@@ -488,6 +589,7 @@ public class SigAdapter implements ServletAdapter {
 	    keymap.put("type", type);
 	    keymap.put("document", document);
 	    keymap.put("digest", digest);
+	    keymap.put("sigserver", sigserver);
 	    keymap.put("PEM", sb.toString());
 	    TemplateProcessor tp = new TemplateProcessor(keymap);
 	    AppendableWriter aw = new AppendableWriter(body);
@@ -521,6 +623,7 @@ public class SigAdapter implements ServletAdapter {
 	    keymap.put("type", type);
 	    keymap.put("mimetype", mediaType);
 	    keymap.put("document", document);
+	    keymap.put("encDocument", URLEncoder.encode(document, UTF8));
 	    keymap.put("sendto", sendto);
 	    keymap.put("query", query);
 	    // keymap.put("subject", subject);

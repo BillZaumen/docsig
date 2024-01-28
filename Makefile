@@ -101,6 +101,12 @@ verify: docsig-verify.jar
 verify2: docsig-verify.jar
 	cat testmsgs.mbox | scrunner --exit  -p  docsig-verify.jar verify2.esp
 
+verify2sonic: docsig-verify.jar
+	cat sonic.mbox | scrunner --exit  -p  docsig-verify.jar verify2.esp
+
+verify2gmail: docsig-verify.jar
+	cat gmail.mbox | scrunner --exit --stackTrace  -p  docsig-verify.jar verify2.esp
+
 verify3: docsig-verify.jar
 	cat testmsgs.mbox | scrunner --exit  -p  docsig-verify.jar verify3.esp
 
@@ -117,10 +123,12 @@ config-docsig:
 
 start-docsig:
 	docker run  --publish 80:80  --name docsig --detach \
+		-e DOCSIG_LOCALHOST=`hostname` \
 		-v docsigdir:/usr/app  wtzbzdev/docsig
 
 start-docsig-tty:
 	docker run  --entrypoint bash  --name docsig -it \
+		-e DOCSIG_LOCALHOST=`hostname` \
 		-v docsigdir:/usr/app  wtzbzdev/docsig 
 
 
@@ -165,6 +173,20 @@ set-request:
 		| sed -e "s/CC/$$cc/" | sed -e "s/<!--//" \
 		| sed -e "s/-->//" \
 		> $(TARGET)/request.html ; \
+	fi
+
+set-form:
+	cc=`git config --get docsig.cc` ; \
+	if [ -z "$$cc" ] ; then \
+		cat $(TARGET)/form.html | sed -e "s/HOST/localhost/" \
+		| sed -e "s/SENDTO_EMAIL_ADDRESS/`git config --get docsig.sendto`/" \
+		> form.html ; \
+	else \
+		cat $(TARGET)/form.html | sed -e "s/HOST/localhost/" \
+		| sed -e "s/SENDTO_EMAIL_ADDRESS/`git config --get docsig.sendto`/" \
+		| sed -e "s/CC/$$cc/" | sed -e "s/<!--//" \
+		| sed -e "s/-->//" \
+		> form.html ; \
 	fi
 
 show-installer:
