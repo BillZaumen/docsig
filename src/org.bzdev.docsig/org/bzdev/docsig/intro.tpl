@@ -37,10 +37,13 @@
 	  <UL>
 	    <LI><A HREF="/docsig-api/api/index.html">API for validation</A>
 	    <LI><A HREF="/bzdev-api/index.html">API for the BZDev
-		class library</A>
+		class library</A>.
 	    <LI><A HREF="/jars/">JAR files for validation</A>.
 	    <LI><A HREF="/docsig-api.zip">ZIP file for downloading the
-		API documentation</A>.
+		DOCSIG API documentation</A>
+	      (when unzipped, the documentation will be in a directory
+	      named <STRONG>api</STRONG>, so runzip should be run in an
+	      appropiately named directory).
 	  </UL>
 	  <P>
 	  <A HREF="#sha256">SHA-256 message digests</A> for JAR files
@@ -60,11 +63,18 @@
       message digest. This web page will also have a 'mailto'
       link that will set up an email message that can be sent
       to submit the signature.
+    <P>
+      A DOCSIG server is capable of performing a small number of
+      tasks. As such, it represents a simple example of the use of the
+      <A HREF="https://microservices.io/">microservice architecture</A>,
+      which more or less breaks a complex application into a number of
+      separately deployable and loosely coupled components.
 
       <H1><A ID="forms">HTML forms</A></H1>
     <P>
       To use DOCSIG, a web site has to return a
-      an HTML file containing an HTML form as shown below:
+      an HTML file, or alternatively an HTML email attachment,
+      containing an HTML form as shown below:
       <BLOCKQUOTE><PRE>
 
  &lt;form action="<A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>/docsig/" method="<A HREF="#METHOD">METHOD</A>"&gt;
@@ -130,9 +140,11 @@
       <H1><A ID="queries">URL query strings</A></H1>
       
       URLs of the form
-      <BLOCKQUOTE>
+      <BLOCKQUOTE><PRE>
+
 <A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>/docsig/?<A HREF="#QUERY">QUERY</A>
-	</BLOCKQUOTE>
+
+</PRE></BLOCKQUOTE>
     <P>
       are used to help validate signature. For these URLs, the '/' before
       the '?' are needed.
@@ -430,9 +442,11 @@
       the host name <STRONG>localhost</STRONG> refers to the container,
       not the system running the container.  On a Linux or Unix system,
       adding
-      <BLOCKQUOTE><PRE><CODE>
+      <BLOCKQUOTE><PRE>
+
 -e DOCSIG_LOCALHOST=`hostname`
-</COdE></PRE></BLOCKQUOTE>
+</PRE></BLOCKQUOTE>
+    <P>
       to a docker <STRONG>run</STRONG> command will replace
       <STRONG>localhost</STRONG> with the hostname of the system on which
       the container is running so that the HTTP request goes to the
@@ -478,6 +492,7 @@ $(endJars)      </UL>
       The program <CODE>shasum</CODE> (or similar programs) can be used
       to verify that the correct JAR file was downloaded. For example,
       <BLOCKQUOTE><PRE>
+
 shasum -b -a 256 docsig-web.jar
       </PRE></BLOCKQUOTE>
       <H2><A ID="scripting">Scripting</A></H2>
@@ -490,6 +505,7 @@ shasum -b -a 256 docsig-web.jar
       provided by the BZDev class library.
       For example,
       <BLOCKQUOTE><PRE>
+
 cat MESSAGES.mbox | scrunner --exit -p docsig-verify.jar SCRIPT.esp
       </PRE></BLOCKQUOTE>
       where
@@ -508,6 +524,7 @@ cat MESSAGES.mbox | scrunner --exit -p docsig-verify.jar SCRIPT.esp
       files in a single directory (e.g., lib), and run the
       command
       <BLOCKQUOTE><PRE>
+
 cat MESSAGES.mbox | java -p lib -m org.bzdev.scrunner \
       --add-modules org.bzdev.docsig.verify --exit  SCRIPT.esp
       </PRE></BLOCKQUOTE>
@@ -519,6 +536,7 @@ cat MESSAGES.mbox | java -p lib -m org.bzdev.scrunner \
       The following ESP script will print out a description of a
       signature and some email headers:
       <BLOCKQUOTE><PRE>
+
 import (org.bzdev.docsig.verify.DocsigVerifier);
 import (org.bzdev.docsig.verify.DocsigVerifier.Result);
 import (org.bzdev.net.HeaderOps);
@@ -544,6 +562,7 @@ results.forEach(function(result) {
         out.println(name + ": " + headers.getFirst(name));
     });
 });
+
 </PRE></BLOCKQUOTE>
     <P>
       While the ESP code above is easily read by anyone familiar with
@@ -567,6 +586,7 @@ results.forEach(function(result) {
       class from the BZDev class library),
       one line per email:
       <BLOCKQUOTE><PRE>
+
 import (org.bzdev.docsig.verify.DocsigVerifier);
 import (org.bzdev.docsig.verify.DocsigVerifier.Result);
 import (org.bzdev.io.CSVWriter);
@@ -590,6 +610,7 @@ results.forEach(function(result) {
     csvw.writeField("" + result.getStatus());
 });
 csvw.close();
+
 </PRE></BLOCKQUOTE>
     <P>
       Either script can be coded almost as easily using
@@ -610,7 +631,9 @@ csvw.close();
       is a link to the current JAR file.  If that installer is
       downloaded, you can run the command
       <BLOCKQUOTE><PRE>
+
 unzip <A HREF="#JARFILE">JARFILE</A> api.zip
+
 </PRE></BLOCKQUOTE>
       where <A ID="JARFILE">JARFILE</A> is the name of the file that
       was downloaded.  This will extract just the file api.zip, which
@@ -636,7 +659,8 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	    <LI> the SHA-256 message digest of the document to be signed,
 	      with the digest computed by the DOCSIG server.
 	    <LI> a link to the document to be signed.
-	    <LI> a URL for the DOCSIG server
+	    <LI> a URL for the DOCSIG server itself (so one can verify
+	      that the server is actually a known  DOCSIG server).
 	    <LI> the ID for the key used to sign these values
 	  </UL>
 	  While the public key is provided directly, one can also look
