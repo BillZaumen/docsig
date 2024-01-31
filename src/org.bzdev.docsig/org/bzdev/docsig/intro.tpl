@@ -62,7 +62,10 @@
       is to be signed, together with the document&apos;s SHA-256
       message digest. This web page will also have a 'mailto'
       link that will set up an email message that can be sent
-      to submit the signature. There are also some Java classes
+      to submit the signature. This email message does not contain
+      the document being signed, but does contain a link to the
+      document and the document's SHA-256 message digest, which
+      is used as a document ID.  There are also some Java classes
       that facilitate processing email so that each individual
       email does not have to be handled manually.  The DOCSIG
       server provides links to the relevant JAR files, including
