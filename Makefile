@@ -95,6 +95,10 @@ test: docsig-web.jar
 	java -p /usr/share/bzdev:docsig-web.jar \
 		-m org.bzdev.docsig  docsig  docsig.config
 
+test-ssl: docsig-web.jar
+	java -p /usr/share/bzdev:docsig-web.jar \
+		-m org.bzdev.docsig  docsig  test.config
+
 verify: docsig-verify.jar
 	cat testdata.txt | scrunner --exit -p docsig-verify.jar verify.esp
 
@@ -130,6 +134,11 @@ start-docsig-tty:
 	docker run  --entrypoint bash  --name docsig -it \
 		-e DOCSIG_LOCALHOST=`hostname` \
 		-v docsigdir:/usr/app  wtzbzdev/docsig 
+
+start-docsig-ssl:
+	docker run  --publish 443:443  --name docsig --detach \
+		-e DOCSIG_LOCALHOST=`hostname` \
+		-v docsigdir:/usr/app  wtzbzdev/docsig
 
 
 stop-docsig:

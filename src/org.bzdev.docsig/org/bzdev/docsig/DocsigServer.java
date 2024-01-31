@@ -171,7 +171,10 @@ public class DocsigServer {
 		    } else {
 			keyStoreFile = dir.toPath().resolve(path).toFile();
 		    }
-		    if (!keyStoreFile.canRead()) keyStoreFile = null;
+		    if (!keyStoreFile.canRead()) {
+			keyStoreFile = null;
+			log.println("... keyStoreFile not readable");
+		    }
 		}
 		s = props.getProperty("trustStoreFile");
 		log.println("trustStoreFile = " + s);
@@ -186,8 +189,7 @@ public class DocsigServer {
 		}
 		
 		s = props.getProperty("sslType");
-		log.println("sslType = " + s);
-		if (s == null || !(s.trim().length() == 0)
+		if (s == null || (s.trim().length() == 0)
 		    || s.trim().equals("null")) {
 		    keyStoreFile = null;
 		} else {
@@ -237,7 +239,6 @@ public class DocsigServer {
 	    }
 	}
 		    
-	EmbeddedWebServer.SSLSetup sslsetup = null;
 	try {
 	    if (sslType != null) {
 		if (loopback) {
@@ -262,7 +263,7 @@ public class DocsigServer {
 		    // Also see
 		    // https://serverfault.com/questions/483465/import-of-pem-certificate-chain-and-key-to-java-keystore
 
-		    sslsetup.keystore(new FileInputStream(keyStoreFile))
+		    sslSetup.keystore(new FileInputStream(keyStoreFile))
 			.keystorePassword(keyStorePW);
 		}
 		/*

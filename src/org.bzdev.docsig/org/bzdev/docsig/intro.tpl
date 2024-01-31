@@ -43,7 +43,7 @@
 		DOCSIG API documentation</A>
 	      (when unzipped, the documentation will be in a directory
 	      named <STRONG>api</STRONG>, so runzip should be run in an
-	      appropiately named directory).
+	      appropriately named directory).
 	  </UL>
 	  <P>
 	  <A HREF="#sha256">SHA-256 message digests</A> for JAR files
@@ -62,13 +62,32 @@
       is to be signed, together with the document&apos;s SHA-256
       message digest. This web page will also have a 'mailto'
       link that will set up an email message that can be sent
-      to submit the signature.
+      to submit the signature. There are also some Java classes
+      that facilitate processing email so that each individual
+      email does not have to be handled manually.  The DOCSIG
+      server provides links to the relevant JAR files, including
+      ones needed to use a scripting language. Besides allowing
+      emails to be processed in bulk, the Java classes check
+      that email messages have not been modified: each email
+      contains some digitally signed data that is
+      <A HREF="https://www.c-sharpcorner.com/article/what-is-a-pem-file/">PEM</A>
+      encoded and that is used in the verification procedure.
     <P>
       A DOCSIG server is capable of performing a small number of
       tasks. As such, it represents a simple example of the use of the
       <A HREF="https://microservices.io/">microservice architecture</A>,
       which more or less breaks a complex application into a number of
       separately deployable and loosely coupled components.
+
+      Existing software used for document signing includes both
+      <A HREF ="https://www.docusign.com">DocuSign</A> and
+      <A HREF = "https://www.docuseal.co/\">DocuSeal</A> (an open
+      source alternative to DocuSign). These are far more capable than
+      DOCSIG, but are overkill for the simplest cases: one use case
+      for DOCSIG is a small group that is required by other entities
+      to have members periodically sign waivers, which end up
+      being stored somewhere and are never looked at again unless
+      something goes wrong.
 
       <H1><A ID="forms">HTML forms</A></H1>
     <P>
@@ -302,7 +321,8 @@
 	<LI><A HREF="#SSL">SSL properties</A> describes properties
 	  specific to SSL
 	<LI><A HREF="#PARMS">Server parameters</A> describes how to
-	  configure general server parameters.
+	  configure general server parameters, including whether or
+	  not SSL is used.
       </UL>
     <P>
       The configuration file itself uses the same format as
@@ -379,13 +399,14 @@
       The server parameters are the following:
       <UL>
 	<LI><B>sslType</B>. When present, the values should be either
-	  <B>SSL</B> or <B>TSL</B>. TSL is preferred. When absent or
+	  <B>SSL</B> or <B>TLS</B>. TLS is preferred. When absent or
 	  when the value is <B>null</B>, HTTP is used instead of HTTPS.
 	<LI><B>ipaddr</B>. The value is the numeric IP address on which
 	  this server listens, with two special values:
 	  <P>
 	  <UL>
-	    <LI><B>wildcard</B>. The server will use the wildcard address.
+	    <LI><B>wildcard</B>. The server will use the wildcard address
+	      (this is the default).
 	    <LI><B>loopback</B>. The server will use the loopback
 	      address.
 	  </UL>
@@ -670,10 +691,13 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	  in that user's email message, which must match the one in
 	  the digitally signed set of values. Email service providers
 	  generally add headers containing digital signatures to show
-	  that a message was sent from a specific account. DKIM
-	  (Domain Keyed Internet Mail) is one example.  This sort of
-	  validation is used by
-	  <A HREF="https://www.propublica.org/nerds/authenticating-email-using-dkim-and-arc-or-how-we-analyzed-the-kasowitz-emails">news organizations"</A>.
+	  that a message was sent from a specific account. Email
+	  security protocols currently in use for this purpose include
+	  <A HREF="https://www.csoonline.com/article/567357/3-email-security-protocols-that-help-prevent-address-spoofing-how-to-use-them.html">
+	    DKIM, SPF, and DMARC</A>.
+	  This sort of validation is used by
+	  <A HREF="https://www.propublica.org/nerds/authenticating-email-using-dkim-and-arc-or-how-we-analyzed-the-kasowitz-emails">news organizations"</A>
+	  when reporting about a public official's emails.
 	  While it is theoretically possible to forge these
 	  signatures, that would require help from someone with
 	  administrative privileges such as an employee granted such
@@ -716,7 +740,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  trustStoreFile trustStorePassword allowLoopback md
  -->
-<!--  LocalWords:  loopback allowSelfSigned TSL nthreads WDIR CFILE
+<!--  LocalWords:  loopback allowSelfSigned TLS nthreads WDIR CFILE
  -->
 <!--  LocalWords:  libbzdev ejws mbox Docsig's BZDev endJars shasum
  -->
@@ -732,5 +756,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  newDocsigConfig DOCSIG's getReasons GPG LOCALHOST
  -->
-<!--  LocalWords:  localhost Docker's hostname DKIM
+<!--  LocalWords:  localhost Docker's hostname DKIM runzip deployable
+ -->
+<!--  LocalWords:  microservice DocuSign DocuSeal DMARC
  -->
