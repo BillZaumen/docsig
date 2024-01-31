@@ -11,6 +11,7 @@ import java.security.MessageDigest;
 import java.security.spec.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
@@ -223,6 +224,8 @@ public class DocsigVerifier {
 	 * <UL>
 	 *  <LI><STRONG>PublicKeyDigest</STRONG>. The public key digest
 	 *    in a message does not match that for the PEM-encoded public key.
+	 *  <LI><STRONG>NoServerURL</STRONG>. The DOCSIG server used did not
+	 *    provide a URL.
 	 *  <LI><STRONG>NotServerPublicKey</STRONG>. The public key does match
 	 *    one that had been used by the DOCSIG server.
 	 *  <LI><STRONG>BadServerRequest</STRONG>. Illegal request to the
@@ -233,6 +236,10 @@ public class DocsigVerifier {
 	 *      the DOCSIG server.
 	 *  <LI><STRONG>BadSignature</STRONG>.  When validating a message,
 	 *      the digital signature failed.
+	 *  <LI><STRONG>ServerMismatch</STRONG>. The same public key ID
+	 *     appeared on multiple servers. This condition is checked but
+	 *     should never happen because public key IDs are cached only
+	 *     if no errors were detected.
 	 * </UL>
 	 *
 	 * @return the reason, represented as a comma-separated
@@ -267,12 +274,18 @@ public class DocsigVerifier {
 	return s;
     }
 
+    private static Map<String,String> validIDs = new HashMap<>();
+    static {
+	validIDs = Collections.synchronizedMap(validIDs);
+    }
+
     private static Result decode(String emailName, String emailAddr,
 				 String messageID,
 				 String s, PrintWriter ew)
 	throws IOException
     {
 	boolean status = true;
+	boolean needInsert = false;
 	StringBuilder rsb = new StringBuilder();
 
 	PemDecoder.Result result = PemDecoder.decode(s);
@@ -312,54 +325,72 @@ public class DocsigVerifier {
 	    status = false;
 	    addReason(rsb, "PublicKeyDigest");
 	}
-	try {
-	    URL url = new URL(headers.getFirst("server")
-			      + "?hasKeyRequest=" + pd);
-	    URLConnection urlc = url.openConnection();
-	    if (urlc instanceof HttpURLConnection) {
-		urlc.connect();
-		HttpURLConnection hurlc = (HttpURLConnection) urlc;
-		switch (hurlc.getResponseCode()) {
-		case 204:
-		    // Found the key, but 204 because no coneent returned
-		    break;
-		case 404:
-		    if (ew != null) {
-			ew.println("For messageID: " + messageID + ",");
-			ew.println("    public key not recognized by server");
-		    }
-		    status = false;
-		    addReason(rsb,"NotServerPublicKey");
-		    break;
-		case 422:
-		    if (ew != null) {
-			ew.println("For messageID: " + messageID + ",");
-			ew.println("    bad request to server");
-		    }
-		    status = false;
-		    addReason(rsb, "BadServerRequest");
-		    break;
-		case 501:
-		    if (ew != null) {
-			ew.println("For messageID: " + messageID + ",");
-			ew.println("    Public keys not available at server");
-		    }
-		    status = false;
-		    addReason(rsb,"PublicKeysNotOnServer");
-		    break;
-		}
-	    }
-	} catch (IOException e) {
+	String theServer = headers.getFirst("server");
+	if (theServer == null) {
 	    if (ew != null) {
 		ew.println("For messageID: " + messageID + ",");
-		ew.println("    could not contact server: "
-			   +  e.getMessage());
+		ew.println("    no server was provided");
+		status = false;
+		addReason(rsb,"NoServerURL");
+	    }
+	} else if (!validIDs.containsKey(pd)) {
+	    try {
+		URL url = new URL(theServer + "?hasKeyRequest=" + pd);
+		URLConnection urlc = url.openConnection();
+		if (urlc instanceof HttpURLConnection) {
+		    urlc.connect();
+		    HttpURLConnection hurlc = (HttpURLConnection) urlc;
+		    switch (hurlc.getResponseCode()) {
+		    case 204:
+			// Found the key, but 204 because no coneent returned
+			needInsert = true;
+			break;
+		    case 404:
+			if (ew != null) {
+			    ew.println("For messageID: " + messageID + ",");
+			    ew.println("    public key not"
+				       + " recognized by server");
+			}
+			status = false;
+			addReason(rsb,"NotServerPublicKey");
+			break;
+		    case 422:
+			if (ew != null) {
+			    ew.println("For messageID: " + messageID + ",");
+			    ew.println("    bad request to server");
+			}
+			status = false;
+			addReason(rsb, "BadServerRequest");
+			break;
+		    case 501:
+			if (ew != null) {
+			    ew.println("For messageID: " + messageID + ",");
+			    ew.println("    Public keys not available"
+				       + " at server");
+			}
+			status = false;
+			addReason(rsb,"PublicKeysNotOnServer");
+			break;
+		    }
+		}
+	    } catch (IOException e) {
+		if (ew != null) {
+		    ew.println("For messageID: " + messageID + ",");
+		    ew.println("    could not contact server: "
+			       +  e.getMessage());
+		}
 		addReason(rsb, "NoServer");
+		status = false;
+	    }
+	    // System.out.println();
+	} else  if (!validIDs.get(pd).equals(theServer)) {
+	    if (ew != null) {
+		ew.println("For messageID: " + messageID + ",");
+		ew.println("    server does not matched cached one");
 	    }
 	    status = false;
+	    addReason(rsb,"ServerMismatch");
 	}
-	// System.out.println();
-				       
 					   
 	try {
 	    SecureBasicUtilities sbutils =
@@ -398,6 +429,9 @@ public class DocsigVerifier {
 	System.out.println("emailName = " + emailName
 			   + ", emailAddr = " + emailAddr);
 	*/
+	if (status && needInsert) {
+	    validIDs.put(pd, theServer);
+	}
 	return new Result(headers, emailName, emailAddr, messageID,
 			  status, rsb.toString());
     }
