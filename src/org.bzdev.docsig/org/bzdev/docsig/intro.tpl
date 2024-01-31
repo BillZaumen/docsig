@@ -315,7 +315,7 @@
 	  The value returned may be a cached value, but the cache size
 	  is limited.
       </UL>
-      <H1><A ID="config">Configuring the DOCSIG server</A></H1>
+      <H1><A ID="config">Configuring a DOCSIG server</A></H1>
       A DOCSIG server is configured used a configuration file that
       provides a series of name-valued pairs:
       <UL>
