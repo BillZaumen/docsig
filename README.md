@@ -26,7 +26,7 @@ the designated account, so the use of email allows one
 to show via an independent party that the email was almost
 certainly sent by a particular individual.
 
-For verification, the a user is expected to save the emails
+For verification, a user is expected to save the emails
 that have been received in MBOX format.  Software provided
 with DOCSIG can then read this format, and provide outputs
 in various formats, including CSV (Comma Separated Values),
