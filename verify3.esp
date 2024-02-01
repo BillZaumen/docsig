@@ -11,7 +11,7 @@ var results = decodeFromMbox(in, err);
 
 var list = ["acceptedBy", "email", "date", "document"];
 
-var csvw = new CSVWriter(out, list.size() + 1);
+var csvw = new CSVWriter(out, list.size() + 3);
 
 results.forEach(function(result) {
     var headers = result.getHeaders();
@@ -19,5 +19,7 @@ results.forEach(function(result) {
 	csvw.writeField(headers.getFirst(name));
     });
     csvw.writeField("" + result.getStatus());
+    csvw.writeField("" + result.getReasons());
+    csvw.writeField("" + result.getMessageID());
 });
 csvw.close();
