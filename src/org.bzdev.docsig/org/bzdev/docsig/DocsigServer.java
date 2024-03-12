@@ -25,11 +25,18 @@ public class DocsigServer {
     static final Set<String> propertyNames =
 	 Set.of("color", "bgcolor", "linkColor", "visitedColor",
 		"buttonFGColor", "buggonBGColor", "bquoteBGColor",
-		"ipaddr", "port", "backlog", "nthreads",
+		"ipaddr", "port", "helperPort", "backlog", "nthreads",
 		"trace", "stackTrace",
 		"keyStoreFile", "trustStoreFile", "sslType",
-		"keyStorePassword", "trustStorePassword",
-		"allowLoopback", "allowSelfSigned");
+		"keyStorePassword", "keyPassword", "trustStorePassword",
+		"allowLoopback", "allowSelfSigned",
+		"certificateManager",
+		"certName", "domain", "email", "timeOffset",
+		"interval", "stopDelay");
+
+    // required property names if a certificate manager is used.
+    static final Set<String> cmPropertyNames =
+	Set.of("sslType", "domain", "keyStoreFile");
 
     public static void main(String argv[]) throws Exception {
 	boolean defaultTrace = false;
@@ -61,6 +68,8 @@ public class DocsigServer {
 	String bquoteBGColor = "rgb(32,32,32)";
 
 	int port = 80;
+	int helperPort = 0;
+	boolean setHelperPort = false;
 	int backlog = 30;
 	int nthreads = 50;
 	boolean trace = defaultTrace;
@@ -68,13 +77,21 @@ public class DocsigServer {
 	InetAddress addr = null;
 
 	EmbeddedWebServer.SSLSetup sslSetup = null;
+	CertManager cm = null;
 	String sslType = null;
 	File keyStoreFile = null;
 	char[] keyStorePW = null;
+	char[] keyPW = null;
 	File trustStoreFile = null;
 	char[] trustStorePW = null;
 	boolean loopback = false;
 	boolean selfsigned = false;
+	String certName = "docsig";
+	String domain = null;
+	String email = null;
+	int timeOffset = 0;
+	int interval = 90;
+	int stopDelay = 5;
 
 	File cdir = new File(System.getProperty("user.dir"));
 	File uadir = new File("/usr/app");
@@ -92,7 +109,7 @@ public class DocsigServer {
 	if (argv.length > 1 + offset) {
 	    File propFile = new File(argv[offset+1]);
 	    String newconfig = System.getenv("newDocsigConfig");
-	    if (newconfig!= null && newconfig.equals("true")) {
+	    if (newconfig != null && newconfig.equals("true")) {
 		File  cf = new File("argv[offset+1]");
 		PrintWriter w = new PrintWriter(propFile, UTF8);
 		for (String name: propertyNames) {
@@ -162,6 +179,15 @@ public class DocsigServer {
 		// System.out.println("stacktrace = " + stacktrace);
 		// System.out.flush();
 
+		s = props.getProperty("certificateManager");
+		if (s != null) {
+		    log.println("certificateManager = " + s);
+		    cm = CertManager.newInstance(s.strip());
+		    if (cm == null) {
+			log.println("... certificatManager not recognized");
+		    }
+		}
+
 		s = props.getProperty("keyStoreFile");
 		log.println("keyStoreFile = " + s);
 		if (s != null) {
@@ -171,9 +197,14 @@ public class DocsigServer {
 		    } else {
 			keyStoreFile = dir.toPath().resolve(path).toFile();
 		    }
-		    if (!keyStoreFile.canRead()) {
-			keyStoreFile = null;
-			log.println("... keyStoreFile not readable");
+		    if (cm == null) {
+			if (keyStoreFile.isDirectory()) {
+			    keyStoreFile = null;
+			    log.println("... keyStoreFile is a directory");
+			} else if (!keyStoreFile.canRead()) {
+			    keyStoreFile = null;
+			    log.println("... keyStoreFile not readable");
+			}
 		    }
 		}
 		s = props.getProperty("trustStoreFile");
@@ -185,7 +216,15 @@ public class DocsigServer {
 		    } else {
 			trustStoreFile = dir.toPath().resolve(path).toFile();
 		    }
-		    if (!trustStoreFile.canRead()) trustStoreFile = null;
+		    if (trustStoreFile.isDirectory()) {
+			log.println("... trustStoreFile is a directory");
+			log.println("... trustStoreFile ignored");
+			trustStoreFile = null;
+		    } else if (!trustStoreFile.canRead()) {
+			log.println("... trustStoreFile not readable");
+			log.println("... trustStoreFile ignored");
+			trustStoreFile = null;
+		    }
 		}
 		
 		s = props.getProperty("sslType");
@@ -195,6 +234,8 @@ public class DocsigServer {
 		} else {
 		    sslType = s.trim().toUpperCase();
 		}
+		log.println("sslType = " + sslType);
+
 		s = props.getProperty("port");
 		if (s == null) {
 		    port = (sslType == null)? 80: 443;
@@ -202,6 +243,15 @@ public class DocsigServer {
 		    port = Integer.parseInt(s);
 		}
 		log.println("port = " + port);
+
+		s = props.getProperty("helperPort");
+		if (s == null) {
+		    helperPort = (sslType == null)? 0: 80;
+		} else {
+		    helperPort = Integer.parseInt(s);
+		    setHelperPort = true;
+		}
+		log.println("helperPort = " + helperPort);
 
 		s = props.getProperty("allowLoopback");
 		if (s != null && s.trim().equalsIgnoreCase("true")) {
@@ -220,26 +270,63 @@ public class DocsigServer {
 		log.println("keyStorePassword = "
 			    + ((keyStorePW == null)? "null": "<redacted>"));
 
+		s = props.getProperty("keyPassword");
+		keyPW = (s == null)? keyStorePW: s.toCharArray();
+		log.println("keyPassword = "
+			    + ((keyPW == null)? "null": "<redacted>"));
+
 		s = props.getProperty("trustStorePassword");
 		trustStorePW = (s== null || trustStoreFile == null)? null:
 		    s.toCharArray();
 		log.println("trustStorePassword = "
 			    + ((trustStorePW == null)? "null": "<redacted>"));
+
+		certName = props.getProperty("certName", "docsig");
+		domain = props.getProperty("domain");
+		email = props.getProperty("email");
+		s = props.getProperty("timeOffset");
+		timeOffset = (s == null)? 0: Integer.parseInt(s);
+		s = props.getProperty("interval");
+		interval = (s == null)? 90: Integer.parseInt(s);
+		s = props.getProperty("stopDelay");
+		stopDelay = (s == null)? 5: Integer.parseInt(s);
+
+
 		for (String key: props.stringPropertyNames()) {
 		    if (!propertyNames.contains(key)) {
 			log.println("Warning: config property \"" + key
 				    + "\" not recognized.");
 		    }
 		}
-
+		if (cm != null && domain != null) {
+		    for (String nm: cmPropertyNames) {
+			String value = props.getProperty(nm);
+			if (value == null) {
+			    log.println("Warning: " + nm + " missing");
+			}
+		    }
+		}
 	    } else {
 		log.println("cannot read config file " + propFile);
 		// System.out.println("propFile is not readable");
 		// System.out.flush();
 	    }
 	}
+	String DOCSIG_LOCALHOST = System.getenv("DOCSIG_LOCALHOST");
+	if (DOCSIG_LOCALHOST != null) {
+	    try {
+		InetAddress iaddr = InetAddress.getByName(DOCSIG_LOCALHOST);
+		log.println("DOCSIG_LOCALHOST (" + DOCSIG_LOCALHOST +") => "
+			    + iaddr.getHostAddress());
+	    } catch (Exception e) {
+		log.println("DOCSIG_LOCALHOST (" + DOCSIG_LOCALHOST
+			    + ") address not found");
+	    }
+	}
 		    
 	try {
+	    boolean needHelperStart = false;
+	    EmbeddedWebServer helper = null;
 	    if (sslType != null) {
 		if (loopback) {
 		    SSLUtilities.allowLoopbackHostname();
@@ -255,8 +342,63 @@ public class DocsigServer {
 						     trustStorePW,
 						     (cert) -> {return false;});
 		}
-		sslSetup = new EmbeddedWebServer.SSLSetup(sslType);
-		if (keyStoreFile != null && keyStorePW != null) {
+		if (cm != null && domain != null) {
+		    cm.setProtocol(sslType)
+			.setInterval(interval)
+			.setStopDelay(stopDelay)
+			.setTimeOffset(timeOffset)
+			.setCertName(certName)
+			.setDomain(domain)
+			.setKeystoreFile(keyStoreFile)
+		        .setKeystorePW(keyStorePW)
+			.setKeyPW(keyPW);
+
+		    if (email != null) cm.setEmail(email);
+		    int hport = cm.helperPort();
+		    int hhport = (hport == 0)? helperPort: hport;
+		    if (helperPort != 0 && setHelperPort
+			&& hhport != helperPort) {
+			log.println("Warning: helperPort ignored - "
+				    + "conflicts with certificate manager");
+		    }
+		    helper = (hhport == 0)? null: new EmbeddedWebServer(hhport);
+		    if (helper != null) {
+			helper.add("/", RedirectWebMap.class,
+				   "https://" + domain + ":" + port +"/",
+				   null, true, false, true);
+			if (hport != 0) {
+			    cm.setHelper(helper);
+			} else {
+			    needHelperStart = (hhport != 0);
+			}
+		    }
+		    // Don't need a trust store because no client
+		    // authentication.
+		} else {
+		    if (domain == null) {
+			log.println("warning: no domain but certificate "
+				    + "manager specified");
+			log.println("ignoring certificate manager");
+		    }
+		    cm = null;
+		}
+		sslSetup = (cm == null)?
+		    new EmbeddedWebServer.SSLSetup(sslType): null;
+		if (sslSetup != null && helperPort != 0) {
+		    if (helperPort != port) {
+			helper = new EmbeddedWebServer(helperPort);
+			if (domain == null) domain = "localhost";
+			helper.add("/", RedirectWebMap.class,
+				   "https://" + domain + ":" + port +"/",
+				   null, true, false, true);
+			needHelperStart = true;
+		    } else {
+			log.println("Warning: HTTP and HTTPS servers using "
+				    + "the same port");
+			log.println("... will not start HTTP server");
+		    }
+		}
+		if (cm == null && keyStoreFile != null && keyStorePW != null) {
 		    // https://blog.syone.com/how-to-build-a-java-keystore-alias-with-a-complete-certificate-chain
 		    // indicates how to set up a keystore so it contains
 		    // the full certificate chain.
@@ -270,12 +412,17 @@ public class DocsigServer {
 		 * We do not need a trust store because we don't requesat
 		 * client authentication.
 		 */
+	    } else {
+		// if sslType is null, we are using HTTP so any
+		// certificate manager should be ignored.
+		cm = null;
 	    }
 	    keyStorePW = null;
 	    trustStorePW = null;
 
-	    EmbeddedWebServer ews = new
-		EmbeddedWebServer(addr, port, backlog, nthreads, sslSetup);
+	    EmbeddedWebServer ews = (cm == null)?
+		new EmbeddedWebServer(addr, port, backlog, nthreads, sslSetup):
+		new EmbeddedWebServer(addr, port, backlog, nthreads, cm);
 
 	    ews.setRootColors(color, bgcolor, linkColor, visitedColor);
 
@@ -447,6 +594,17 @@ public class DocsigServer {
 		ews.setTracer("/jars/", log, false);
 	    }
 	    ews.start();
+	    log.println("ews started on port " +ews.getPort()
+			+ " running " + (ews.usesHTTPS()? "HTTPS": "HTTP"));
+	    if (needHelperStart) {
+		// In thius case, the cerfiicate manager does not
+		// use the helper and start it, so we'll start the
+		// helper manually as it will map http requests
+		// to https requests.
+		helper.start();
+		log.println("helper started directly on port "
+			    + helper.getPort());
+	    }
 	} catch (Exception ex) {
 	    log.println("Exception terminating server was thrown:");
 	    ex.printStackTrace(log);
@@ -457,6 +615,8 @@ public class DocsigServer {
 		    t.printStackTrace(log);
 		}
 		log.println("-------------");
+		log.flush();
+		System.exit(1);
 	    }
 	    log.flush();
 	}

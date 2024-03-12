@@ -114,9 +114,20 @@ verify2gmail: docsig-verify.jar
 verify3: docsig-verify.jar
 	cat testmsgs.mbox | scrunner --exit  -p  docsig-verify.jar verify3.esp
 
+goodsigs: docsig-verify.jar
+	cat testmsgs.mbox | scrunner --exit  -p  docsig-verify.jar goodsigs.esp
+
+badsigs: docsig-verify.jar
+	cat testmsgs.mbox | scrunner --exit  -p  docsig-verify.jar badsigs.esp
+
+
 start-all:  start-docsig start-trivweb
 
 start-all-local: start-docsig start-local-trivweb
+
+start-all-local-ssl: start-docsig-ssl start-local-trivweb
+
+
 
 stop-all: stop-docsig stop-trivweb
 
@@ -131,15 +142,15 @@ start-docsig:
 		-v docsigdir:/usr/app  wtzbzdev/docsig
 
 start-docsig-tty:
-	docker run  --entrypoint bash  --name docsig -it \
+	docker run  --entrypoint sh  --name docsig -it \
 		-e DOCSIG_LOCALHOST=`hostname` \
 		-v docsigdir:/usr/app  wtzbzdev/docsig 
 
 start-docsig-ssl:
-	docker run  --publish 443:443  --name docsig --detach \
+	docker run  --publish 443:443  --publish 80:80 \
+		--name docsig --detach \
 		-e DOCSIG_LOCALHOST=`hostname` \
 		-v docsigdir:/usr/app  wtzbzdev/docsig
-
 
 stop-docsig:
 	docker stop docsig

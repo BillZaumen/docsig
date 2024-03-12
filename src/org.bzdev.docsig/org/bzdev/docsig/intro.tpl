@@ -379,6 +379,9 @@
 	  the configuration file.
 	<LI><B>keyStorePassword</B>. The value is the password used by
 	    the keystore file.
+	<LI><B>keyPassword</B>. The value is the password used for individual
+	  entries in the keystore file.  If not provided, the default is the
+	  value of <B>keyStorePassword</B>.
 	<LI><B>trustStoreFile</B>. The value is the file name of the
 	  trust store, which provides certificates to trust in
 	  addition to those provided by Java for certificate authorities.
@@ -393,6 +396,33 @@
 	<LI><B>allowSelfSigned</B>. When <B>true</B>, self-signed
 	  certificates are accepted.  The default is <B>false</B>. This
 	  option is useful for testing, but should not be used otherwise.
+	<LI><B>certificateManager</B>. When present, the value is either
+	  a simple name or a fully-qualified class name for a certificate
+	  manager. The value "default" will set up DOCSIG so that a
+	  self-signed certificate is automatically generated and the
+	  corresponding keystore file will be created if it is not already
+	  present.  Certificates are renewed automatically. The Docker
+	  container wtzbzdev/ejwscert includes a certificate manger  whose
+	  simple name is "certbot" and that will get a certificate from the
+	  Let's Encrypt certificate authority. In this case, the
+	  properties <B>domain</B> and <B>email</B> are required.
+	<LI><B>certName</B>. This is a name used to tag a certificate. The
+	  default is "docsig".
+	<LI><B>domain</B>. This is the fully-qualified domain name for the
+	  server.  It is used to create the distinguished name in a
+	  certificate.
+	<LI><B>email</B>. This is an email address used by some
+	  certificate authorities to send notifications about expiring
+	  certificates.
+	<LI><B>timeOffset</B>. The time offset in seconds from
+	  midnight, local time, at which a server should determine if
+	  a certificate should be renewed.
+	<LI><B>interval</B>.  The number of days between attempts to
+	  renew a certificate.
+	<LI><B>stopDelay</B>. The time interval in seconds from a request
+	  to shutdown a server to when the server is actually shut down.
+	  This is used to give transactions being processed time to complete
+	  and will be used only when a new certificate is needed..
       </UL>
       When HTTPS is used on the Internet, the only properties that should
       be set are <B>keyStoreFile</B> and <B>keyStorePassword</B>.
@@ -411,10 +441,24 @@
 	    <LI><B>wildcard</B>. The server will use the wildcard address
 	      (this is the default).
 	    <LI><B>loopback</B>. The server will use the loopback
-	      address.
+	      address. Note that within a Linux container (e.g., when using
+	      Docker), the loopback address may be interpreted as the
+	      loopback address inside the container, no the loopback address
+	      of the system.
 	  </UL>
 	<LI><B>port</B>. The value is the server&apos;s TCP port.  If missing
 	  the port is by default set to 80 for HTTP and 443 for HTTPS.
+	<LI><B>helperPort</B>. The value is an alternate server&apos;s
+	  TCP port for use with HTTP when the certificate manager (if
+	  provided) does not provide an HTTP port to use.  If the
+	  value is zero or the parameter is not defined, and the
+	  certificate manager does not provide a port, an HTTP server
+	  will not be started.  If an HTTP server is started, it will provide
+	  an HTTP redirect to the HTTPS server for web pages containing
+	  documentation and public keys, and for queries. For POST methods,
+	  the HTTPS server has to be used directly.  If the certificate
+	  manager does not provide a port, this value must be set when an
+	  HTTP server is desired.
 	<LI><B>backlog</B>. When present, the value is an integer providing
 	  the <A HREF="https://veithen.io/2014/01/01/how-tcp-backlog-works-in-linux.html">TCP backlog</A>.
           The default value is 30.
@@ -761,5 +805,9 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  localhost Docker's hostname DKIM runzip deployable
  -->
-<!--  LocalWords:  microservice DocuSign DocuSeal DMARC
+<!--  LocalWords:  microservice DocuSign DocuSeal DMARC keyPassword
+ -->
+<!--  LocalWords:  certificateManager wtzbzdev ejwscert certbot
+ -->
+<!--  LocalWords:  certName timeOffset stopDelay helperPort
  -->

@@ -57,6 +57,38 @@ public class SigAdapter implements ServletAdapter {
     // to modify it.
     static final String DOCSIG_LOCALHOST = System.getenv("DOCSIG_LOCALHOST");
 
+    private static String getDocsigLocalAddr() {
+	if (DOCSIG_LOCALHOST == null) return null;
+	String found = null;
+	try {
+	    for(InetAddress addr: InetAddress.getAllByName(DOCSIG_LOCALHOST)) {
+		if (!addr.isLoopbackAddress()) {
+		    String name = addr.getCanonicalHostName();
+		    if (name == null) {
+			// add brackets because that is wht we need for HTTP
+			// and HTTPS.
+			if (addr instanceof Inet6Address) {
+			    name =  addr.getHostAddress();
+			    if (name.length() == 39) {
+				name =  "[" + name + "]";
+			    } else {
+				name = null;
+			    }
+			} else {
+			    name =  addr.getHostAddress();
+			}
+		    }
+		    if (name != null) return name;
+		}
+	    }
+	} catch (Exception e) {}
+	return null;
+    }
+
+
+    static final String DOCSIG_LOCAL_ADDR = getDocsigLocalAddr();
+
+
     static String bytesToHex(byte[] bytes) {
 	final char[] hexArray = {'0','1','2','3','4','5','6','7','8','9',
 				 'a','b','c','d','e','f'};
@@ -105,6 +137,13 @@ public class SigAdapter implements ServletAdapter {
 	if (parameters == null) {
 	    throw new ServletAdapter.ServletException("missing parameters");
 	}
+
+	if (DOCSIG_LOCALHOST != null && DOCSIG_LOCAL_ADDR == null) {
+	    throw new ServletAdapter.ServletException
+		("DOCSIG_LOCALHOST = " + DOCSIG_LOCALHOST
+		 + " but no suitable IP address found");
+	}
+	System.out.println("DOCSIG_LOCAL_ADDR = " + DOCSIG_LOCAL_ADDR);
 
 	color = parameters.get("color");
 	bgcolor = parameters.get("bgcolor");
@@ -304,7 +343,7 @@ public class SigAdapter implements ServletAdapter {
 		String host = url.getHost();
 		if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
 		    url = new URL(url.getProtocol(),
-				  DOCSIG_LOCALHOST,
+				  DOCSIG_LOCAL_ADDR,
 				  url.getPort(),
 				  url.getFile());
 		}
@@ -328,9 +367,20 @@ public class SigAdapter implements ServletAdapter {
 			    return;
 			}
 		    } catch (IOException eio) {
-			sendSimpleResponse(res, 404,
-					   "could not load " + docurl
-					   +"\r\n error [1]: " + eio.getMessage());
+			if (DOCSIG_LOCALHOST != null
+			    && host.equals("localhost")) {
+			    sendSimpleResponse(res, 404,
+					      "could not load " + docurl
+					      +"\r\n (localhost -> "
+					      + DOCSIG_LOCALHOST + ")"
+					      + "\r\n error [1]: "
+					      + eio.getMessage());
+			} else {
+			    sendSimpleResponse(res, 404,
+					       "could not load " + docurl
+					       +"\r\n error [1]: "
+					       + eio.getMessage());
+			}
 			return;
 		    }
 		    String mediaType = hurlc.getContentType();
@@ -368,7 +418,7 @@ public class SigAdapter implements ServletAdapter {
 	    String host = url.getHost();
 	    if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
 		url = new URL(url.getProtocol(),
-			      DOCSIG_LOCALHOST,
+			      DOCSIG_LOCAL_ADDR,
 			      url.getPort(),
 			      url.getFile());
 	    }
@@ -392,9 +442,20 @@ public class SigAdapter implements ServletAdapter {
 			return;
 		    }
 		} catch (IOException eio) {
-		    sendSimpleResponse(res, 404,
-				       "could not load " + docurl
-				       +"\r\n error [2]: " + eio.getMessage());
+		    if (DOCSIG_LOCALHOST != null
+			&& host.equals("localhost")) {
+			sendSimpleResponse(res, 404,
+					  "could not load " + docurl
+					  +"\r\n (localhost -> "
+					  + DOCSIG_LOCALHOST + ")"
+					  + "\r\n error [2]: "
+					  + eio.getMessage());
+		    } else {
+			sendSimpleResponse(res, 404,
+					   "could not load " + docurl
+					   +"\r\n error [2]: "
+					   + eio.getMessage());
+		    }
 		    return;
 		}
 		String mediaType = hurlc.getContentType();
@@ -491,7 +552,7 @@ public class SigAdapter implements ServletAdapter {
 	String host = url.getHost();
 	if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
 	    url = new URL(url.getProtocol(),
-			  DOCSIG_LOCALHOST,
+			  DOCSIG_LOCAL_ADDR,
 			  url.getPort(),
 			  url.getFile());
 	}
@@ -510,9 +571,17 @@ public class SigAdapter implements ServletAdapter {
 		    return;
 		}
 	    } catch (IOException eio) {
-		sendSimpleResponse(res, 404,
-				   "could not load " + document
-				   +"\r\n error [3]: " + eio.getMessage());
+		if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+		    sendSimpleResponse(res, 404,
+				      "could not load " + document
+				      + "\r\n (localhost -> "
+				      + DOCSIG_LOCALHOST + ")"
+				      + "\r\n error [3]: " + eio.getMessage());
+		} else {
+		    sendSimpleResponse(res, 404,
+				       "could not load " + document
+				       +"\r\n error [3]: " + eio.getMessage());
+		}
 		return;
 	    }
 	    String mediaType = hurlc.getContentType();
