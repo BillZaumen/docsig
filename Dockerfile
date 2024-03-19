@@ -1,18 +1,21 @@
-FROM wtzbzdev/ejwscert:17-jdk-alpine AS build
+FROM wtzbzdev/ejwsacme:17-jdk-alpine AS build
 
-RUN mkdir -p /usr/share/doc/libbzdev-doc
+RUN mkdir -p /usr/share/doc/libbzdev-doc \
+    && mkdir -p /etc/docsig
 
+COPY docsig.config /etc/docsig/docsig.config
 COPY bzdevapi.zip /usr/share/doc/libbzdev-doc/api.zip
-
 COPY docsig-web.jar /usr/share/bzdev
 
 RUN jlink --module-path /usr/share/bzdev \
-	  --add-modules org.bzdev.docsig,jdk.crypto.ec,org.bzdev.certbotmgr \
+	  --add-modules org.bzdev.docsig,$EJWS_ACME_MODULES \
 	  --compress=2 --no-header-files --no-man-pages \
-	  --output opt/docsig
+	  --include-locales=en --strip-debug --output /opt/docsig
 
 RUN rm -rf /opt/java/openjdk
 RUN rm -rf /usr/share/bzdev
+COPY reset.sh /opt/docsig/reset
+RUN chmod u+x /opt/docsig/reset
 
 FROM scratch
 
@@ -23,16 +26,15 @@ ENV JAVA_HOME=/opt/docsig
 # Default configuration used initially so a user can get
 # documentation.
 RUN mkdir -p /usr/app
-RUN echo port=80 > /usr/app/docsig.config
 
 #
-# Depending on the configuration, we could be using either HTTP or
-# HTTPS, so expose the default ports for both.
+# Depending on the configuration, we could be using either HTTP,
+# HTTPS or both, so expose the default ports.
 #
 EXPOSE 80/tcp
 EXPOSE 443/tcp
 
-WORKDIR usr/app
+WORKDIR /usr/app
 
 CMD [ "java", "-m", "org.bzdev.docsig", \
      "/usr/app/docsig", "/usr/app/docsig.config" ]

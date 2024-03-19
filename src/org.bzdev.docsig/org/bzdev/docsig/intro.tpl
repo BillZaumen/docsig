@@ -24,6 +24,7 @@
     <P>
       Links:
       <UL>
+	<LI><A HREF="#quickstart">Quick Start</A>.
 	<LI><A HREF="#intro">Introduction</A>.
 	<LI><A HREF="#forms">Forms</A>.
 	<LI><A HREF="#queries">Query strings<A>.
@@ -53,6 +54,80 @@
 	<LI><A HREF="/PublicKeys">Public Keys</A> that have been
 	  created by this server.
       </UL>
+      <H1><A ID="quickstart">Quick Start</A></H1>
+    <P>
+      The easiest way install and run DOCSIG is to log onto a server
+      and  place the
+      following file in a directory named "docsig" with the file name
+      docker-compose.yml
+      <BLOCKQUOTE><PRE>
+
+version: "3"
+
+services:
+  docsig:
+    image: wtzbzdev/docsig:latest
+    container_name: docsig
+    network_mode: "bridge"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - acme:/etc/acme
+      - contents:/usr/app
+    restart: "unless-stopped"
+
+volumes:
+   acme:
+   contents:
+
+</PRE></BLOCKQUOTE>	  
+      and then run the command
+      <BLOCKQUOTE><PRE>
+
+docker-compose up -d
+
+</PRE></BLOCKQUOTE>	  
+    <P>
+      This will start a server running HTTP.  To use HTTPS,
+      <OL>
+	<LI> Create a domain name.  For the domain example.com,
+	  one might create a subdomain docsig.example.com and add
+	  an 'A" or 'AAAA' record to the DNS server to associate
+	  this subdomain with the server's IP address. Each domain
+	  registry has its own procedure for doing this.
+	<LI> Download a configuration file.
+	  <UL>
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.config</A>
+	      can be used to get free certificates automatically from
+	      Lets Encrypt.
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.config</A>
+	      will provide a self-signed certificate suitable for
+	      testing.
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.config</A>
+	      can be used when certificates are managed manually.
+	  </UL>
+	  (The links for these configuration files use github because
+	  some browsers are now restricting downloads over HTTP.)
+	<LI> Edit the downloaded configuration file. Each contains
+	  instructions and typically one or two lines will have to
+	  be changed.
+	<LI> With docsig running, run the command
+	  <BLOCKQUOTE><PRE>
+
+docker cp CONFIGURATION_FILE docsig:/usr/app/docsig.config
+
+</PRE></BLOCKQUOTE>
+	  where CONFIGURATION_FILE is the name of the configuration
+	  file that was downloaded and edited.
+	<LI> Run the docker-compose command
+	  <BLOCKQUOTE><PRE>
+
+docker-compose restart
+
+</PRE></BLOCKQUOTE>
+	  which will restart the server and use the new configuration file.
+      </OL>
       <H1><A ID="intro"> Introduction</A></H1>
     <P>
       DOCSIG is a server that supports the use of digital
@@ -402,10 +477,19 @@
 	  self-signed certificate is automatically generated and the
 	  corresponding keystore file will be created if it is not already
 	  present.  Certificates are renewed automatically. The Docker
-	  container wtzbzdev/ejwscert includes a certificate manger  whose
-	  simple name is "certbot" and that will get a certificate from the
+	  container wtzbzdev/docsig includes a certificate manger  whose
+	  simple name is "AcmeClient" and that will get a certificate from the
 	  Let's Encrypt certificate authority. In this case, the
-	  properties <B>domain</B> and <B>email</B> are required.
+	  properties <B>domain</B> and <B>email</B> are required, and
+	  the server's DNS server must be configured to map the domain name
+	  to the server's IP address (i.e., by setting an 'A' or 'AAAA"
+	  record).
+	<LI><B>certMode</B>. When present, the value may be <B>NORMAL</B>,
+	  <B>STAGED</B>, or <B>TEST</B>. The default is <B>NORMAL</B>.
+	  The value <B>STAGED</B> is useful for initial testing when the
+	  certificate manager's provider name is <B>AcmeClient</B>: the
+	  Lets Encrypt server will then generate a non-functioning certificate
+	  but the ACME protocol will be used to download a certificate.
 	<LI><B>certName</B>. This is a name used to tag a certificate. The
 	  default is "docsig".
 	<LI><B>domain</B>. This is the fully-qualified domain name for the

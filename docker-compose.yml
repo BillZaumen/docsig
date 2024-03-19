@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  docsig:
+    image: wtzbzdev/docsig:latest
+    container_name: docsig
+    network_mode: "bridge"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - acme:/etc/acme
+      - contents:/usr/app
+    restart: "unless-stopped"
+
+volumes:
+   acme:
+   contents:

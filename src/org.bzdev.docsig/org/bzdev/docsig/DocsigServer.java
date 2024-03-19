@@ -2,6 +2,7 @@ package org.bzdev.docsig;
 import java.io.File;
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
@@ -30,7 +31,7 @@ public class DocsigServer {
 		"keyStoreFile", "trustStoreFile", "sslType",
 		"keyStorePassword", "keyPassword", "trustStorePassword",
 		"allowLoopback", "allowSelfSigned",
-		"certificateManager",
+		"certificateManager", "certMode",
 		"certName", "domain", "email", "timeOffset",
 		"interval", "stopDelay");
 
@@ -78,6 +79,7 @@ public class DocsigServer {
 
 	EmbeddedWebServer.SSLSetup sslSetup = null;
 	CertManager cm = null;
+	CertManager.Mode cmMode = CertManager.Mode.NORMAL;
 	String sslType = null;
 	File keyStoreFile = null;
 	char[] keyStorePW = null;
@@ -108,6 +110,22 @@ public class DocsigServer {
 	// System.out.flush();
 	if (argv.length > 1 + offset) {
 	    File propFile = new File(argv[offset+1]);
+	    File dir = propFile.getParentFile();
+
+	    if (!propFile.exists()) {
+		log.println("Creating " + propFile);
+		log.flush();
+		File template = new File("/etc/docsig/docsig.config");
+		if (template.isFile() && template.canRead()) {
+		    Path src = template.toPath();
+		    Path dst = propFile.toPath();
+		    if (dir != null) {
+			dir.mkdirs();
+		    }
+		    Files.copy(src,dst);
+		}
+	    }
+	    /*
 	    String newconfig = System.getenv("newDocsigConfig");
 	    if (newconfig != null && newconfig.equals("true")) {
 		File  cf = new File("argv[offset+1]");
@@ -122,10 +140,11 @@ public class DocsigServer {
 		w.close();
 		System.exit(0);
 	    }
+	    */
+
+	    if (dir == null) dir = new File(System.getProperty("user.dir"));
 
 	    log.println("Config file  = " + propFile);
-	    File dir = propFile.getParentFile();
-	    if (dir == null) dir = new File(System.getProperty("user.dir"));
 	    if (propFile.canRead()) {
 		// System.out.println("propFile is readable");
 		Reader r = new FileReader(propFile, UTF8);
@@ -185,6 +204,24 @@ public class DocsigServer {
 		    cm = CertManager.newInstance(s.strip());
 		    if (cm == null) {
 			log.println("... certificatManager not recognized");
+		    }
+		}
+
+		s = props.getProperty("certMode");
+		if (s != null) {
+		    s = s.trim();
+		    if (s.equals("NORMAL")) {
+			CertManager.Mode certMode = CertManager.Mode.NORMAL;
+			cm.setMode(certMode);
+		    } else if (s.equals("STAGED")) {
+			CertManager.Mode certMode = CertManager.Mode.STAGED;
+			cm.setMode(certMode);
+		    } else if (s.equals("TEST")) {
+			CertManager.Mode certMode = CertManager.Mode.TEST;
+			cm.setMode(certMode);
+		    } else {
+			log.println("certMode \"" + s + "\" not recognized"
+				    + " - ignored");
 		    }
 		}
 

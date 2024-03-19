@@ -1,0 +1,25 @@
+import (org.bzdev.docsig.verify.DocsigVerifier);
+import (org.bzdev.docsig.verify.DocsigVerifier.Result);
+import (org.bzdev.io.CSVWriter);
+import (org.bzdev.net.HeaderOps);
+
+var in = global.getReader();
+var out = global.getWriter();
+var err = null;
+
+var results = decodeFromMbox(in, err);
+
+var list = ["acceptedBy", "email", "date", "document"];
+
+var csvw = new CSVWriter(out, list.size() + 1);
+
+results.forEach(function(result) {
+    var headers = result.getHeaders();
+    result.getStatus() && `{
+	list.forEach(function (name) {
+	    csvw.writeField(headers.getFirst(name));
+	});
+	csvw.writeField("" + result.getMessageID());
+    }
+});
+csvw.close();

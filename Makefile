@@ -93,11 +93,11 @@ docker-release:
 
 test: docsig-web.jar
 	java -p /usr/share/bzdev:docsig-web.jar \
-		-m org.bzdev.docsig  docsig  docsig.config
+		-m org.bzdev.docsig  docsig  test.config
 
 test-ssl: docsig-web.jar
 	java -p /usr/share/bzdev:docsig-web.jar \
-		-m org.bzdev.docsig  docsig  test.config
+		-m org.bzdev.docsig  docsig  test-ssl.config
 
 verify: docsig-verify.jar
 	cat testdata.txt | scrunner --exit -p docsig-verify.jar verify.esp
