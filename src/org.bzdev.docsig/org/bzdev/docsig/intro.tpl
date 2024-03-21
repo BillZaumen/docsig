@@ -85,11 +85,14 @@ volumes:
       and then run the command
       <BLOCKQUOTE><PRE>
 
-docker-compose up -d
+docker compose up -d
 
 </PRE></BLOCKQUOTE>	  
     <P>
-      This will start a server running HTTP.  To use HTTPS,
+      This will start a server running HTTP. For older versions
+      of Docker, "docker compose" should be "docker-compose".
+    <P>
+      To use HTTPS,
       <OL>
 	<LI> Create a domain name.  For the domain example.com,
 	  one might create a subdomain docsig.example.com and add
@@ -100,7 +103,7 @@ docker-compose up -d
 	  <UL>
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.config</A>
 	      can be used to get free certificates automatically from
-	      Lets Encrypt.
+	      Let's Encrypt.
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.config</A>
 	      will provide a self-signed certificate suitable for
 	      testing.
@@ -123,11 +126,15 @@ docker cp CONFIGURATION_FILE docsig:/usr/app/docsig.config
 	<LI> Run the docker-compose command
 	  <BLOCKQUOTE><PRE>
 
-docker-compose restart
+docker compose restart
 
 </PRE></BLOCKQUOTE>
 	  which will restart the server and use the new configuration file.
       </OL>
+    <P>
+      The remainder of this document provides programming documentation
+      for DOCSIG.
+
       <H1><A ID="intro"> Introduction</A></H1>
     <P>
       DOCSIG is a server that supports the use of digital
@@ -488,8 +495,12 @@ docker-compose restart
 	  <B>STAGED</B>, or <B>TEST</B>. The default is <B>NORMAL</B>.
 	  The value <B>STAGED</B> is useful for initial testing when the
 	  certificate manager's provider name is <B>AcmeClient</B>: the
-	  Lets Encrypt server will then generate a non-functioning certificate
-	  but the ACME protocol will be used to download a certificate.
+	  Let's Encrypt server will then generate a non-functioning certificate
+	  but the ACME protocol will be used to download a certificate and
+	  receiving a certificate indicates that there is not a configuration
+	  error.  When <B>certMode</B> is <B>TEST</B>, programs that
+	  implement the ACME protocol will not actually be run. This
+	  value is intended for some tests of the AcmeClient provider.
 	<LI><B>certName</B>. This is a name used to tag a certificate. The
 	  default is "docsig".
 	<LI><B>domain</B>. This is the fully-qualified domain name for the
@@ -891,7 +902,9 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  microservice DocuSign DocuSeal DMARC keyPassword
  -->
-<!--  LocalWords:  certificateManager wtzbzdev ejwscert certbot
+<!--  LocalWords:  certificateManager wtzbzdev ejwscert certbot yml
  -->
-<!--  LocalWords:  certName timeOffset stopDelay helperPort
+<!--  LocalWords:  certName timeOffset stopDelay helperPort AAAA DNS
+ -->
+<!--  LocalWords:  config github cp AcmeClient certMode
  -->
