@@ -25,7 +25,7 @@ public class DocsigServer {
     // configuration file.
     static final Set<String> propertyNames =
 	 Set.of("color", "bgcolor", "linkColor", "visitedColor",
-		"buttonFGColor", "buggonBGColor", "bquoteBGColor",
+		"buttonFGColor", "buttonBGColor", "bquoteBGColor",
 		"ipaddr", "port", "helperPort", "backlog", "nthreads",
 		"trace", "stackTrace",
 		"keyStoreFile", "trustStoreFile", "sslType",

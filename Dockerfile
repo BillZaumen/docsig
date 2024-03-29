@@ -3,6 +3,11 @@ FROM wtzbzdev/ejwsacme:17-jdk-alpine AS build
 RUN mkdir -p /usr/share/doc/libbzdev-doc \
     && mkdir -p /etc/docsig
 
+COPY CURRENT_EJWS_VERSION /CURRENT_EJWS_VERSION
+RUN (cmp EJWS_VERSION CURRENT_EJWS_VERSION || \
+     (echo ERROR: base ejws version out of date ; exit 1)) \
+    && rm CURRENT_EJWS_VERSION
+
 COPY docsig.config /etc/docsig/docsig.config
 COPY bzdevapi.zip /usr/share/doc/libbzdev-doc/api.zip
 COPY docsig-web.jar /usr/share/bzdev

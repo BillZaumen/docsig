@@ -73,9 +73,11 @@ docker: docsig-web.jar
 	cp stylesheet$(JAVADOC_VERSION).css stylesheet.css
 	zip bzdevapi.zip stylesheet.css
 	rm stylesheet.css
+	dpkg-query -f '$${Version}\n' -W libbzdev-ejws-java > \
+		CURRENT_EJWS_VERSION
 	docker build --tag wtzbzdev/docsig:$(DOCKER_VERSION) \
 		--tag wtzbzdev/docsig:latest .
-	rm bzdevapi.zip
+	rm bzdevapi.zip CURRENT_EJWS_VERSION
 
 docker-nocache: docsig-web.jar
 	unzip -p $(BZDEV_INSTALLER) api.zip > bzdevapi.zip
