@@ -42,4 +42,4 @@ EXPOSE 443/tcp
 WORKDIR /usr/app
 
 CMD [ "java", "-m", "org.bzdev.docsig", \
-     "/usr/app/docsig", "/usr/app/docsig.config" ]
+     "/usr/app/docsig", "/usr/app/docsig" ]

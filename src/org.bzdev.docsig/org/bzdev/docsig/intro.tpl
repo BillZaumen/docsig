@@ -51,7 +51,8 @@
 	  should be checked.
        <LI><A HREF="#proof">Verifying and Trusting Signatures</A>.
        <LI><A HREF="#source">Source code</A>.
-	<LI><A HREF="/PublicKeys">Public Keys</A> that have been
+       <LI><A HREF="#security">Security</A>.
+       <LI><A HREF="/PublicKeys">Public Keys</A> that have been
 	  created by this server.
       </UL>
       <H1><A ID="quickstart">Quick Start</A></H1>
@@ -122,7 +123,16 @@ docker cp CONFIGURATION_FILE docsig:/usr/app/docsig.config
 
 </PRE></BLOCKQUOTE>
 	  where CONFIGURATION_FILE is the name of the configuration
-	  file that was downloaded and edited.
+	  file that was downloaded and edited. For more complex
+	  installations, the configuration file can use YAML syntax as
+	  described <A HREF="#YAML">below</A>, in which case the
+	  docker copy command is 
+	  <BLOCKQUOTE><PRE>
+
+docker cp CONFIGURATION_FILE docsig:/usr/app/docsig.yaml
+
+</PRE></BLOCKQUOTE>
+	  where the configuration file uses YAML syntax.
 	<LI> Run the docker-compose command
 	  <BLOCKQUOTE><PRE>
 
@@ -418,11 +428,43 @@ docker compose restart
       cases). For example,
       <BLOCKQUOTE><PRE>
 	  
-	  sslType = TLS
-	  keyStoreFile = keystore.p12
-	  keyStorePassword = changeit
+sslType = TLS
+keyStoreFile = keystore.p12
+keyStorePassword = changeit
+
       </PRE></BLOCKQUOTE>
-      would provide a basic HTTPS configuration.
+      would provide a basic HTTPS configuration. <A ID="YAML"></A>
+      Alternatively, a file
+      using
+      <A HREF="https://linuxhandbook.com/yaml-basics/">YAML syntax</A>
+      can be used. For example,
+      <BLOCKQUOTE><PRE>
+%YAML 1.2
+---	  
+config:	  
+  sslType: TLS
+  keyStoreFile: keystore.p12
+  keyStorePassword: changeit
+...
+      </PRE></BLOCKQUOTE>
+      in which case the file name must end with the suffix
+      ".yml", ".yaml", ".YML", or ".YAML".  With a YAML configuration
+      file, one can add additional components to the web server as
+      described in the
+      <A HREF="/bzdev-api/org.bzdev.ejws/org/bzdev/ejws/ConfigurableWS.html">ConfigurableWS</A>
+      documentation, in which case the following prefixes must not be
+      used
+      <UL>
+	<LI><STRONG>/</STRONG>.
+	<LI><STRONG>/docsig</STRONG>.
+	<LI><STRONG>/docsig-api</STRONG>.
+	<LI><STRONG>bzdev-api</STRONG>.
+	<LI><STRONG>/jars</STRONG>.
+	<LI><STRONG>/PublicKeys</STRONG>.
+      </UL>
+      as these are already used by DOCSIG.  If additional web pages
+      are added to the server, the docker-compose.yml file may have
+      to be modified as additional volumes may be needed.
 
       <H2><A ID="colors">Configuring CSS colors</A></H2>
     <P>
@@ -592,10 +634,16 @@ docker compose restart
 	  the server.  If this argument is missing, the server will
 	  not be able to provide previously used public keys, nor this
 	  introduction.
-	<LI><A ID="cfile">CFILE</A> is a configuration file. If this
+	<LI><A ID="cfile">CFILE</A> is a configuration file (the file-name
+	  extension is optional). If this
 	  argument is missing, defaults will be used for all
 	  configuration parameters, and specifically SSL will not be
-	  configured.
+	  configured. The file-name extension, which includes the period,
+	  is optional: if not present, an extension will be added. DOCSIG
+	  will try ".YML", ".yml", '.YAML", '.yaml, ".CONFIG", and
+	  ".config" in that order until an existing file is found. If an
+	  existing file is not found, ".config" is used as an extension
+	  and a basic configuration file will be created.
       </UL>
     <P>
       DOCSIG also uses the environment variable
@@ -612,16 +660,8 @@ docker compose restart
     <P>
       to a docker <STRONG>run</STRONG> command will replace
       <STRONG>localhost</STRONG> with the hostname of the system on which
-      the container is running so that the HTTP request goes to the
-      correct server.
-    <P>
-      DOCSIG can also use environment variables to set up the configuration
-      file (mainly to simplify the use of Docker).  If the environment
-      variable "newDocsigConfig" has the value "true", the configuration file
-      <A HREF="#cfile">CFILE</A> will be created or overwritten. To add
-      lines to this file, set environment variables whose names are those
-      of the <A HREF="#PARMS">server parameters</A>. Each will be copied
-      to the configuration file.  The names are case-sensitive.
+      the container is running so that an HTTP request goes to the
+      system instead of the container running DOCSIG.
 
       <H1><A ID="validation">Validating email</A></H1>
 
@@ -862,7 +902,49 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
     <P>
       Source code is available on
       <A HREF="https://github.com/BillZaumen/docsig">GitHub</A>.
-
+    <P>
+      <H1><A ID="security">Security</A></H1>
+    <P>
+      DOCSIG's security is based on the following:
+      <UL>
+	<LI> DOCSIG is written in Java. This ostensibly eliminates
+	  security exploits based on buffer overflow issues, but
+	  of course is dependent on the JVM (Java virtual machine)
+	  functioning as advertised.
+	<LI> DOCSIG does not write anything except logging data and the
+	  public keys it generates to the file system. The log does
+	  not contain any information about a user, even an IP
+	  address, and is provided merely for debugging server issues
+	  (e.g., errors in the configuration file).
+	<LI> DOCSIG does not use a database, so SQL-injection attacks
+	  are not possible.  Similarly a DOCSIG server does not provide
+	  any scripting capabilities.
+	<LI> DOCSIG will typically be run in a Docker container, which
+	  isolates DOCSIG server from the system on which it is running.
+	  The standard DOCSIG Docker image was created using jlink to
+	  create a stripped-down JRE (Java Runtime Environment). DOCSIG
+	  itself uses the Java modules
+	  <UL>
+	    <LI> java.base,
+	    <LI> java.desktop,
+	    <LI> java.xml,
+	    <LI> jdk.httpserver,
+	    <LI> jdk.crypto.ec,
+	  </UL>
+	  and the Java library PJAC (used to obtained certificates
+	  from Lets Encrypt) requires several additional modules:
+	  <UL>
+	    <LI> java.logging.
+	    <LI> java.management.
+	    <LI> java.naming.
+	    <LI> java.sql.
+	    <LI> jdk.crypto.cryptoki.
+	    <LI> jdk.localedata.
+	  </UL>
+	  By using a stripped-down JRE, the "attack surface" is smaller,
+	  and the JRE will load significantly faster and will use less
+	  memory.
+      </UL>
   </body>
 </html>
 
@@ -906,5 +988,9 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  certName timeOffset stopDelay helperPort AAAA DNS
  -->
-<!--  LocalWords:  config github cp AcmeClient certMode
+<!--  LocalWords:  config github cp AcmeClient certMode YAML yaml JVM
+ -->
+<!--  LocalWords:  ConfigurableWS PublicKeys jlink JRE Runtime xml
+ -->
+<!--  LocalWords:  jdk httpserver PJAC sql localedata
  -->

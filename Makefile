@@ -97,6 +97,11 @@ test: docsig-web.jar
 	java -p /usr/share/bzdev:docsig-web.jar \
 		-m org.bzdev.docsig  docsig  test.config
 
+test2: docsig-web.jar
+	java -p /usr/share/bzdev:docsig-web.jar \
+		-m org.bzdev.docsig  docsig  test2.yaml
+
+
 test-ssl: docsig-web.jar
 	java -p /usr/share/bzdev:docsig-web.jar \
 		-m org.bzdev.docsig  docsig  test-ssl.config

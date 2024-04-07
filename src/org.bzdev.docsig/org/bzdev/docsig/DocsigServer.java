@@ -59,9 +59,57 @@ public class DocsigServer {
 	Properties props = null;
 	ConfigurableWS server = null;
 	PrintStream log = null;
-
 	if (argv.length > 1 + offset) {
-	    File configFile = new File(argv[offset+1]);
+	    File configFile = null;
+	    String fname = argv[offset+1];
+	    String sep = System.getProperty("file.separator");
+	    int sepIndex = fname.lastIndexOf(sep);
+	    int index = fname.lastIndexOf('.');
+	    if (index < sepIndex) index = -1;
+	    if (index != -1) {
+		String extension = fname.substring(index+1);
+		if (!extension.equals("YML")
+		    && !extension.equals("yml")
+		    && !extension.equals("YAML")
+		    && !extension.equals("yaml")
+		    && !extension.equals("CONFIG")
+		    && !extension.equals("config")) {
+		    System.err.println("docsig: "
+				       + "unrecognized file-name extension \""
+				       + extension + "\"");
+		    System.exit(1);
+		} else {
+		    configFile = new File(fname);
+		    if (!configFile.exists()) {
+			System.err.println("docsig: file \""
+				       + extension + "\" does not exist");
+			System.exit(1);
+		    }
+		    if (!configFile.canRead()) {
+			System.err.println("docsig: file \""
+				       + extension + "\" not readable");
+			System.exit(1);
+		    }
+		}
+	    } else {
+		configFile = new File(fname + ".YML");
+		if (!configFile.exists()) {
+		    configFile = new File(fname+ ".yml");
+		}
+		if (!configFile.exists()) {
+		    configFile = new File(fname+ ".YAML");
+		}
+		if (!configFile.exists()) {
+		    configFile = new File(fname+ ".yaml");
+		}
+		if (!configFile.exists()) {
+		    configFile = new File(fname+ ".CONFIG");
+		}
+		if (!configFile.exists()) {
+		    configFile = new File(fname+ ".config");
+		}
+	    }
+
 	    File dir = configFile.getParentFile();
 
 	    if (!configFile.exists()) {
@@ -281,6 +329,10 @@ public class DocsigServer {
 
 		WebMap wmap = ews.getWebMap("/");
 		wmap.addMapping("pem", "application/x-pem-file");
+	    }
+	    log.println("Prefixes:");
+	    for (String prefix: ews.getPrefixes()) {
+		log.println("    " + prefix);
 	    }
 	    boolean trace = server.trace();
 	    boolean stacktrace = server.stacktrace();
