@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+#		      DOCSIG CONFIGURATION FILE
+config:
+  domain: localhost
+  sslType: TLS
+  helperPort: 80
+  port: 443
+  backlog: 30
+  nthreads: 50
+  certificateManager: default
+  timeOffset: 0
+
+  certName: docsig
+  keyStoreFile: /usr/app/keystore.jks
+  keyStorePassword: changeit
+  keyPassword: changeit
+
+  interval: 5
+  stopDelay: 5
+
+  allowSelfSigned: false;
+  allowLoopback: false;
+
+  trace: false
+  stackTrace: false
+...

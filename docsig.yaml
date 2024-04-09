@@ -1,0 +1,10 @@
+%YAML 1.2
+---
+#		      DOCSIG CONFIGURATION FILE
+config:
+  port: 80
+  backlog: 30
+  nthreads: 50
+  trace: false
+  stackTrace: false
+...

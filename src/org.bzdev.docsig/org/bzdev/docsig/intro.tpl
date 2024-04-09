@@ -102,14 +102,22 @@ docker compose up -d
 	  registry has its own procedure for doing this.
 	<LI> Download a configuration file.
 	  <UL>
-	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.config</A>
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.config</A> or
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.yaml</A>
 	      can be used to get free certificates automatically from
 	      Let's Encrypt.
-	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.config</A>
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.config</A> or
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.yaml</A>
 	      will provide a self-signed certificate suitable for
 	      testing.
-	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.config</A>
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.config</A> or
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.yaml</A>
 	      can be used when certificates are managed manually.
+	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/docsig.config">docsig.config</A>
+	      is the default configuation file, which will be automatically
+	      installed if no configuration file is present. The file
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/docsig.config">docsig.yaml</A>
+	      is also available.
 	  </UL>
 	  (The links for these configuration files use github because
 	  some browsers are now restricting downloads over HTTP.)
@@ -125,7 +133,9 @@ docker cp CONFIGURATION_FILE docsig:/usr/app/docsig.config
 	  where CONFIGURATION_FILE is the name of the configuration
 	  file that was downloaded and edited. For more complex
 	  installations, the configuration file can use YAML syntax as
-	  described <A HREF="#YAML">below</A>, in which case the
+	  described <A HREF="#YAML">below</A>, in which case
+	  CONFIGURATION_FILE must have the extension ".yaml" instead
+	  of ".config" and the
 	  docker copy command is 
 	  <BLOCKQUOTE><PRE>
 
