@@ -11,8 +11,10 @@ services:
     volumes:
       - acme:/etc/acme
       - contents:/usr/app
+      - certlog:/var/log/cert
     restart: "unless-stopped"
 
 volumes:
    acme:
+   certlog:
    contents:

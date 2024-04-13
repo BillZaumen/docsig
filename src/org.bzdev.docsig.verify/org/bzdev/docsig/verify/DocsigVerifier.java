@@ -37,6 +37,19 @@ import org.bzdev.util.TemplateProcessor.KeyMap;
  */
 public class DocsigVerifier {
 
+    /**
+     * Allow localhost and self-signed certificates.
+     * This method should not be used, except for
+     * testing.
+     */
+    public static void reduceSecurity() {
+	try {
+	    SSLUtilities.allowLoopbackHostname();
+	    SSLUtilities.installTrustManager("TLS", null, null,
+					     (c) -> {return true;});
+	} catch (Exception e) {}
+    }
+
     static final Charset UTF8 = Charset.forName("UTF-8");
     static final String CRLF = "\r\n";
 
@@ -118,9 +131,11 @@ public class DocsigVerifier {
 	pmap.put("EC", "SunEC");
     }
 
+    // This must be in the order in which a signature was generated.
     static private String[] headerKeys = {
-	"acceptedBy", "date", "ipaddr", "id", "transID", "email",
-	"server", "sendto", "cc", "document", "type", "digest", "publicKeyID"
+	"acceptedBy", "timestamp", "date", "timezone", "ipaddr",
+	"id", "transID", "email", "server", "sendto", "cc",
+	"document", "type", "digest", "publicKeyID"
     };
 
     /**
@@ -669,6 +684,8 @@ public class DocsigVerifier {
 			String md = hdrs.getFirst("digest");
 			String document = hdrs.getFirst("document"); 
 			String type = hdrs.getFirst("type");
+			String date = hdrs.getFirst("date");
+			String timezone = hdrs.getFirst("timezone");
 			String sigserver = hdrs.getFirst("server");
 			if (quotedPrintable) {
 			    nm = (nm == null)? null: pqEncode(nm);
@@ -681,6 +698,8 @@ public class DocsigVerifier {
 			KeyMap keymap = new KeyMap();
 			keymap.put("name", nm);
 			keymap.put("type", type);
+			keymap.put("date", date);
+			keymap.put("timezone", timezone);
 			keymap.put("document", document);
 			keymap.put("sigserver", sigserver);
 			keymap.put("digest", md);

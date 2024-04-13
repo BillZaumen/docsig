@@ -4,6 +4,8 @@ import java.net.*;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -129,6 +131,8 @@ public class SigAdapter implements ServletAdapter {
     String bquoteBGColor = null;
     File publicKeyDir = null;
     File logFile = null;
+    String timezone = null;
+    ZoneId zoneID = null;
 
     @Override
     public void init(Map<String,String>parameters)
@@ -143,7 +147,7 @@ public class SigAdapter implements ServletAdapter {
 		("DOCSIG_LOCALHOST = " + DOCSIG_LOCALHOST
 		 + " but no suitable IP address found");
 	}
-	System.out.println("DOCSIG_LOCAL_ADDR = " + DOCSIG_LOCAL_ADDR);
+	// System.out.println("DOCSIG_LOCAL_ADDR = " + DOCSIG_LOCAL_ADDR);
 
 	color = parameters.get("color");
 	bgcolor = parameters.get("bgcolor");
@@ -152,6 +156,16 @@ public class SigAdapter implements ServletAdapter {
 	buttonFGColor = parameters.get("buttonFGColor");
 	buttonBGColor = parameters.get("buttonBGColor");
 	bquoteBGColor = parameters.get("bquoteBGColor");
+
+	timezone = parameters.get("timezone");
+	if (timezone != null) {
+	    // DocsigServer already checked that the time zone is a
+	    // one recognized by our JRE.
+	    zoneID = ZoneId.of(timezone);
+	} else {
+	    timezone = ZoneId.systemDefault().getId();
+	}
+
 	String logFileName = parameters.get("logFile");
 	logFile = (logFileName != null)? new File(logFileName): null;
 
@@ -540,6 +554,8 @@ public class SigAdapter implements ServletAdapter {
 	subject = subject.strip().replaceAll("\\s+"," ");
 	String digest = null;
 	String timestamp = Instant.now().toString();
+	String date = (zoneID == null? LocalDate.now(): LocalDate.now(zoneID))
+	    .toString();
 	String ipaddr = req.getRemoteAddr();
 
 
@@ -598,7 +614,9 @@ public class SigAdapter implements ServletAdapter {
 	    cache.put(digest, entry);
 	    StringBuilder sb = new StringBuilder(1024);
 	    sb.append("acceptedBy: "); sb.append(name); sb.append(CRLF);
-	    sb.append("date: "); sb.append(timestamp); sb.append(CRLF);
+	    sb.append("timestamp: "); sb.append(timestamp); sb.append(CRLF);
+	    sb.append("date: "); sb.append(date); sb.append(CRLF);
+	    sb.append("timezone: "); sb.append(timezone); sb.append(CRLF);
 	    sb.append("ipaddr: "); sb.append(ipaddr); sb.append(CRLF);
 	    if (id != null) {
 		sb.append("id: "); sb.append(id); sb.append(CRLF);
@@ -620,6 +638,8 @@ public class SigAdapter implements ServletAdapter {
 		Signature signer = sbuPrivate.getSigner();
 		signer.update((name+CRLF).getBytes(UTF8));
 		signer.update((timestamp + CRLF).getBytes(UTF8));
+		signer.update((date + CRLF).getBytes(UTF8));
+		signer.update((timezone + CRLF).getBytes(UTF8));
 		signer.update((ipaddr + CRLF).getBytes(UTF8));
 		if (id != null) {
 		    signer.update((id+CRLF).getBytes(UTF8));
@@ -656,6 +676,8 @@ public class SigAdapter implements ServletAdapter {
 	    TemplateProcessor.KeyMap keymap = new TemplateProcessor.KeyMap();
 	    keymap.put("name", name);
 	    keymap.put("type", type);
+	    keymap.put("date", date);
+	    keymap.put("timezone", timezone);
 	    keymap.put("document", document);
 	    keymap.put("digest", digest);
 	    keymap.put("sigserver", sigserver);

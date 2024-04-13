@@ -16,6 +16,7 @@ config:
   keyStorePassword: changeit
   keyPassword: changeit
 
+  timezone: UTC
   interval: 5
   stopDelay: 5
 

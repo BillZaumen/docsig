@@ -5,6 +5,7 @@ config:
   port: 80
   backlog: 30
   nthreads: 50
+  timezone: UTC
   trace: false
   stackTrace: false
 ...

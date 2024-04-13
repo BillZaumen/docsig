@@ -6,10 +6,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 import org.bzdev.ejws.*;
 import org.bzdev.ejws.maps.*;
 import org.bzdev.net.HttpMethod;
@@ -23,7 +25,8 @@ public class DocsigServer {
     // Extra config names, used to check for misspellings in the
     // configuration file.
     static final Set<String> extraPropNames =
-	Set.of("buttonFGColor", "buttonBGColor", "bquoteBGColor");
+	Set.of("buttonFGColor", "buttonBGColor", "bquoteBGColor",
+	       "timezone");
 
     public static void main(String argv[]) throws Exception {
 	boolean defaultTrace = false;
@@ -49,6 +52,7 @@ public class DocsigServer {
 	String buttonFGColor = "white";
 	String buttonBGColor = "rgb(10,10,64)";
 	String bquoteBGColor = "rgb(32,32,32)";
+	String timezone = null;
 
 	File cdir = new File(System.getProperty("user.dir"));
 	File uadir = new File("/usr/app");
@@ -142,6 +146,17 @@ public class DocsigServer {
 		bquoteBGColor = props.getProperty("bquoteBGColor",
 						  bquoteBGColor);
 
+		timezone = props.getProperty("timezone");
+		if (timezone != null) {
+		    timezone = timezone.trim();
+		    if (ZoneId.of(timezone) == null) {
+			log.println("timezone " + timezone
+				    +" not recognized, using system default");
+			timezone = ZoneId.systemDefault().getId();
+		    }
+		    log.println("timezone = " + timezone);
+		}
+
 		log.println("buttonFGColor = " + buttonFGColor);
 		log.println("buttonBGColor = " + buttonBGColor);
 		log.println("bquoteBGColor = " + bquoteBGColor);
@@ -192,6 +207,9 @@ public class DocsigServer {
 	    parameters.put("buttonFGColor", buttonFGColor);
 	    parameters.put("buttonBGColor", buttonBGColor);
 	    parameters.put("bquoteBGColor", bquoteBGColor);
+	    if (timezone != null) {
+		parameters.put("timezone", timezone);
+	    }
 	    if (logFile != null) {
 		String logPath = logFile.getCanonicalPath();
 		parameters.put("logFile", logPath);
@@ -277,6 +295,17 @@ public class DocsigServer {
 			null, true, true, false);
 
 		ews.getWebMap("/").addWelcome("intro.html");
+
+		target = new File(f, "timezones.txt");
+		os = new FileOutputStream(target);
+		w = new FileWriter(target, UTF8);
+		TreeSet<String> zids =
+		    new TreeSet<>(ZoneId.getAvailableZoneIds());
+		for (String zoneid: zids) {
+		    w.write(zoneid + "\r\n");
+		}
+		w.flush();
+		w.close();
 
 		target = new File(f, "docsig-api.zip");
 		InputStream zis = DocsigServer.class
