@@ -26,6 +26,7 @@ public class DocsigServer {
     // configuration file.
     static final Set<String> extraPropNames =
 	Set.of("buttonFGColor", "buttonBGColor", "bquoteBGColor",
+	       "inputFGColor", "inputBGColor",
 	       "timezone");
 
     public static void main(String argv[]) throws Exception {

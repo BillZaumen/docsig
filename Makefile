@@ -19,6 +19,7 @@ EMAIL_RESOURCE = src/org.bzdev.docsig/org/bzdev/docsig/email.tpl
 
 RESOURCES = src/org.bzdev.docsig/org/bzdev/docsig/signature.tpl \
 	src/org.bzdev.docsig/org/bzdev/docsig/intro.tpl \
+	src/org.bzdev.docsig/org/bzdev/docsig/request.tpl \
 	$(EMAIL_RESOURCE)
 
 docsig-web.jar:  docsig-verify.jar \
