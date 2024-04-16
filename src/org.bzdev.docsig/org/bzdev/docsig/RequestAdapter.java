@@ -78,6 +78,8 @@ public class RequestAdapter implements ServletAdapter {
     String cc = null;
     String subject = "Document Signature";
     String sigserver = null;
+    File  template = null;
+
 
     @Override
     public void init(Map<String,String>parameters)
@@ -175,19 +177,17 @@ public class RequestAdapter implements ServletAdapter {
 	    }
 	    sigserver = s;
 	}
-    }
-
-    static void sendSimpleResponse(HttpServerResponse res, int code,
-				   String msg)
-	throws IOException, ServletAdapter.ServletException
-    {
-	byte[] bytes = msg.getBytes(UTF8);
-	res.setHeader("content-type", "text/plain; charset=UTF-8");
-	res.sendResponseHeaders(code, bytes.length);
-	OutputStream os = res.getOutputStream();
-	os.write(bytes);
-	os.flush();
-	os.close();
+	key = "template";
+	s = parameters.get(key).trim();
+	if (s != null) {
+	    template = new File(s);
+	    if (!(template.isFile() && template.canRead())) {
+		String msg = "File \"" + s  +"\" not readable or not an "
+		    + "ordinary file";
+		throw new ServletAdapter.ServletException(msg);
+	    }
+	}
+	
     }
 
     @Override
@@ -197,14 +197,12 @@ public class RequestAdapter implements ServletAdapter {
 	String name = req.getParameter("name");
 	if (name != null) name = name.trim();
 	if (name == null || name.length() == 0) {
-	    sendSimpleResponse(res, 400,
-			       "query-string field missing: name");
+	    name = null;
 	}
 	String email = req.getParameter("email");
 	if (email != null) email = email.trim();
 	if (email == null || email.length() == 0) {
-	    sendSimpleResponse(res, 400,
-			       "query-string field missing: email");
+	    email = null;
 	}
 	String id = req.getParameter("id");
 	if (id != null) id = id.trim();
@@ -231,8 +229,12 @@ public class RequestAdapter implements ServletAdapter {
 	keymap.put("subject", WebEncoder.htmlEncode(subject));
 	keymap.put("sigserver", WebEncoder.htmlEncode(sigserver));
 
-	keymap.put("name", WebEncoder.htmlEncode(name));
-	keymap.put("email", WebEncoder.htmlEncode(email));
+	if (name != null) {
+	    keymap.put("name", WebEncoder.htmlEncode(name));
+	}
+	if (email != null) {
+	    keymap.put("email", WebEncoder.htmlEncode(email));
+	}
 	if (id != null) {
 	    keymap.put("id", WebEncoder.htmlEncode(id));
 	}
@@ -244,9 +246,10 @@ public class RequestAdapter implements ServletAdapter {
 	ByteArrayOutputStream baos = new ByteArrayOutputStream(2048);
 	Writer w = new OutputStreamWriter(baos, UTF8);
 
-	Reader r = new InputStreamReader(getClass()
-					 .getResourceAsStream("request.tpl"),
-					 UTF8);
+	Reader r = (template == null)?
+	    new InputStreamReader(getClass().getResourceAsStream("request.tpl"),
+				  UTF8):
+	    new FileReader(template, UTF8);;
 	tp.processTemplate(r, w);
 	w.flush();
 	byte[]results = baos.toByteArray();

@@ -316,12 +316,18 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
 	  default value is "Document Signature"
 	<LI><B>sigserver</B>: The URL for the signature server.
 	  This must be an absolute URL.
+	<LI><A ID="template"></A><B>template</B>: The file name for the
+	  <A HREF="/bzdev-api/org.bzdev.base/org/bzdev/util/TemplateProcessor.html">template</A>
+	  used to generate a signature-request page. The
+	  <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/src/org.bzdev.docsig/org/bzdev/docsig/request.tpl">default template</A>
+	  can be copied and then modified to customize the request.
       </UL>
       For example,
       <BLOCKQUOTE><PRE>
 
 %YAML 1.2
 ---
+defs: [optional]
 config: [not shown]
 contexts:
   - prefix: /request/
@@ -343,7 +349,13 @@ contexts:
 ...
 
 </PRE></BLOCKQUOTE>
-
+      If there are multiple request forms, one should include a
+      "template" parameter aa described<A HREF="#template">above</A>
+      and (of course) use a different prefix for each. The object
+      <B>propertyName</B> provides parameters whose names and values
+      were defined for the "config" object, including those not explicitly
+      listed but that have default values.
+    <P>
       To get the request form, use the URL
       <BLOCKQUOTE><PRE>
 
@@ -563,7 +575,35 @@ keyStorePassword = changeit
       Alternatively, a file
       using
       <A HREF="https://linuxhandbook.com/yaml-basics/">YAML syntax</A>
-      can be used. For example,
+      can be used.  The top-level objects in a DOCSIG YAML file are
+      <UL>
+	<LI><B>defs</B>. The value is typically a list.  Its function
+	  is to provide a series of YAML anchors, which can be
+	  referenced in the other sections of the file so that creating
+	  the file is less tedious.
+	<LI><B>config</B>. The value is an object whose keys have the
+	  names listed <A HREF="">above</A>.
+	<LI><A ID="contexts"></A><B>contexts</B>.
+	  The value is a list of objects, each defining a new HTML
+	  context, and can be used to add additional capabilities to
+	  the server.  The prefix used for a context must not be
+	  <UL>
+	    <LI><STRONG>/</STRONG>
+	    <LI><STRONG>/docsig</STRONG>
+	    <LI><STRONG>/docsig-api</STRONG>
+	    <LI><STRONG>bzdev-api</STRONG>
+	    <LI><STRONG>/jars</STRONG>
+	    <LI><STRONG>/PublicKeys</STRONG>
+	  </UL>
+	  as these are used by DOCSIG directly. The configuration for
+	  each context is described in the API documentation for the
+	  class
+	  <A HREF="/bzdev-api//org.bzdev.ejws/org/bzdev/ejws/ConfigurableWS.html">ConfigurableWS</A>.
+	  If additional web pages are added to the server, the
+	  docker-compose.yml may have to be modified as additional volumes
+	  may be needed.
+      </UL>
+      For example,
       <BLOCKQUOTE><PRE>
 %YAML 1.2
 ---	  
@@ -574,23 +614,7 @@ config:
 ...
       </PRE></BLOCKQUOTE>
       in which case the file name must end with the suffix
-      ".yml", ".yaml", ".YML", or ".YAML".  With a YAML configuration
-      file, one can add additional components to the web server as
-      described in the
-      <A HREF="/bzdev-api/org.bzdev.ejws/org/bzdev/ejws/ConfigurableWS.html">ConfigurableWS</A>
-      documentation, in which case the following prefixes must not be
-      used
-      <UL>
-	<LI><STRONG>/</STRONG>.
-	<LI><STRONG>/docsig</STRONG>.
-	<LI><STRONG>/docsig-api</STRONG>.
-	<LI><STRONG>bzdev-api</STRONG>.
-	<LI><STRONG>/jars</STRONG>.
-	<LI><STRONG>/PublicKeys</STRONG>.
-      </UL>
-      as these are already used by DOCSIG.  If additional web pages
-      are added to the server, the docker-compose.yml file may have
-      to be modified as additional volumes may be needed.
+      ".yml", ".yaml", ".YML", or ".YAML".  
 
       <H2><A ID="colors">Configuring CSS colors</A></H2>
     <P>
