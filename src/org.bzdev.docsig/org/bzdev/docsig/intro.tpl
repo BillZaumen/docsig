@@ -108,20 +108,20 @@ docker compose up -d
 	<LI> Download a configuration file.
 	  <UL>
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.config</A> or
-	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.config">acme.yaml</A>
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/acme.yaml">acme.yaml</A>
 	      can be used to get free certificates automatically from
 	      Let's Encrypt.
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.config</A> or
-	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.config">default.yaml</A>
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/default.yaml">default.yaml</A>
 	      will provide a self-signed certificate suitable for
 	      testing.
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.config</A> or
-	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.config">manual.yaml</A>
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/manual.yaml">manual.yaml</A>
 	      can be used when certificates are managed manually.
 	    <LI><A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/docsig.config">docsig.config</A>
 	      is the default configuration file, which will be automatically
 	      installed if no configuration file is present. The file
-	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/docsig.config">docsig.yaml</A>
+	      <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/docsig.yaml">docsig.yaml</A>
 	      is also available.
 	  </UL>
 	  (The links for these configuration files use github because

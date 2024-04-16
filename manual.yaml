@@ -1,0 +1,25 @@
+%YAML 1.2
+...
+#		      DOCSIG CONFIGURATION FILE
+config:
+  keyStorePassword: changeit
+  keyPassword: changeit
+
+  sslType: TLS
+  helperPort: 80
+  port: 443
+
+  backlog: 30
+  nthreads: 50
+
+  certificateManager: null
+  keyStoreFile: /usr/app/keystore.jks
+
+  timezone: UTC
+  stopDelay: 5
+  allowSelfSigned: false;
+  allowLoopback: false;
+
+  trace: false
+  stackTrace: false
+
