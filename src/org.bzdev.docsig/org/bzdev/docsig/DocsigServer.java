@@ -118,8 +118,8 @@ public class DocsigServer {
 	    File dir = configFile.getParentFile();
 
 	    if (!configFile.exists()) {
-		log.println("Creating " + configFile);
-		log.flush();
+		System.out.println("Creating " + configFile);
+		System.out.flush();
 		File template = new File("/etc/docsig/docsig.config");
 		if (template.isFile() && template.canRead()) {
 		    Path src = template.toPath();
@@ -128,6 +128,8 @@ public class DocsigServer {
 			dir.mkdirs();
 		    }
 		    Files.copy(src,dst);
+		} else {
+		    System.err.println("... cannot read config file template");
 		}
 	    }
 

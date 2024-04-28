@@ -499,6 +499,33 @@ public class DocsigVerifier {
     public static Result[] decodeFromMbox(Reader r, PrintWriter ew)
 	throws IOException
     {
+	return decodeFromMbox(r, ew, null, null, null);
+    }
+
+    /**
+     * Decode multiple messages stored using mbox format, also
+     * providing a {@link PrintWriter} for error messages and optionally
+     * testing for the desired document, document digest, and/or DOCSIG
+     * server.
+     * @param r a {@link java.io.Reader} used to read an mbox file
+     * @param ew a {@link java.io.PrintWriter} used to record error messages
+     * @param expectedDocument the expected document URL; null if no test
+     *        is desired
+     * @param expectedDigest the expected message digest for the document;
+     *         null if no test is desired
+     * @param expectedServer the expected DOCSIG-server URL; null if no
+     *        test is desired
+     * @return an array of {@link Result} describing the status of
+     *         a signature request and the values of various headers
+     * @throws IOException if an IO error occurred
+     */
+    public static Result[] decodeFromMbox(Reader r, PrintWriter ew,
+					  String expectedDocument,
+					  String expectedDigest,
+					  String expectedServer)
+	throws IOException
+    {
+
 	if (ew == null) {
 	    ew = new PrintWriter(new OutputStreamWriter(System.err));
 	}
@@ -687,6 +714,24 @@ public class DocsigVerifier {
 			String date = hdrs.getFirst("date");
 			String timezone = hdrs.getFirst("timezone");
 			String sigserver = hdrs.getFirst("server");
+			if (expectedDocument != null) {
+			    if (!expectedDocument.equals(document)) {
+				result.setStatus(false);
+				result.addToReasons("WrongDocument");
+			    }
+			}
+			if (expectedDigest != null) {
+			    if (!expectedDigest.equals(md)) {
+				result.setStatus(false);
+				result.addToReasons("WrongDigest");
+			    }
+			}
+			if (expectedServer != null) {
+			    if (!expectedServer.equals(sigserver)) {
+				result.setStatus(false);
+				result.addToReasons("WrongServer");
+			    }
+			}
 			if (quotedPrintable) {
 			    nm = (nm == null)? null: pqEncode(nm);
 			    type = (type == null)? null: pqEncode(type);

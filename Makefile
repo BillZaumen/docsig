@@ -20,13 +20,15 @@ EMAIL_RESOURCE = src/org.bzdev.docsig/org/bzdev/docsig/email.tpl
 RESOURCES = src/org.bzdev.docsig/org/bzdev/docsig/signature.tpl \
 	src/org.bzdev.docsig/org/bzdev/docsig/intro.tpl \
 	src/org.bzdev.docsig/org/bzdev/docsig/request.tpl \
+	src/org.bzdev.docsig/org/bzdev/docsig/table.tpl \
 	$(EMAIL_RESOURCE)
 
 docsig-web.jar:  docsig-verify.jar \
 		$(JFILES) $(RESOURCES) src/org.bzdev.docsig/module-info.java
 	rm -rf mods/org.bzdev.docsig/
 	mkdir -p mods/org.bzdev.docsig/
-	javac --release 11 -d mods/org.bzdev.docsig -p /usr/share/bzdev \
+	javac --release 11 -d mods/org.bzdev.docsig \
+		-p /usr/share/bzdev:docsig-verify.jar \
 		src/org.bzdev.docsig/module-info.java $(JFILES)
 	cp $(RESOURCES) mods/org.bzdev.docsig/org/bzdev/docsig
 	javadoc -d api --module-path /usr/share/bzdev:docsig-verify.jar \

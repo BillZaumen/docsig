@@ -11,9 +11,11 @@ RUN (cmp EJWS_VERSION CURRENT_EJWS_VERSION || \
 COPY docsig.config /etc/docsig/docsig.config
 COPY bzdevapi.zip /usr/share/doc/libbzdev-doc/api.zip
 COPY docsig-web.jar /usr/share/bzdev
+COPY docsig-verify.jar /usr/share/bzdev
 
 RUN jlink --module-path /usr/share/bzdev \
-	  --add-modules org.bzdev.docsig,$EJWS_ACME_MODULES \
+	  --add-modules \
+	  org.bzdev.docsig,org.bzdev.docsig.verify,$EJWS_ACME_MODULES \
 	  --compress=2 --no-header-files --no-man-pages \
 	  --include-locales=en --strip-debug --output /opt/docsig
 

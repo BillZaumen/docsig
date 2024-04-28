@@ -26,11 +26,10 @@
 <A HREF="$(sigserver)?url=$(encDocument)&digest=$(digest)">$(digest)</A>
       </BLOCKQUOTE>
     <P>
-      To sign the $(type), click the following button. This should open an
-      email window with everything filled out.  If possible, please send it
-      with a GPG or PGP signature and also compute the SHA-256 digest
-      independently. The submission will not be valid if the
-      text of the email is modified.
+      To sign the $(type), click the following button. This should
+      open an email window with everything filled out.  If possible,
+      please send it with a GPG or PGP signature. The submission will
+      not be valid if the text of the email is modified.
     <P><br>
     <A href="mailto:$(sendto)?$(query)"
        style="background-color:$(buttonBGColor);color:$(buttonFGColor); padding: 14px 25px; text-align: center; text-decoration: none;">Click To Send</A>

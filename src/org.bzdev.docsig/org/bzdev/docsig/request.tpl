@@ -9,19 +9,42 @@
         color: $(color);
         margin: 2em;
     }
+    A {color: $(linkColor);}
+    A:link {color:$(linkColor);}
+    A:visited {color:$(visitedColor);}
     INPUT {
         background-color:$(inputBG);
         color: $(inputColor);
     }
   </style>
+    <SCRIPT>
+      function doResize() {
+          var height = window.innerHeight;
+          if (height < 300) height = 300;
+          var contentHeight = height / 2;
+          var frame = document.getElementById("frame");
+          frame.height = contentHeight;
+      }
+      window.addEventListener("resize", doResize);
+    </SCRIPT>
     <title>Signature Request</title>
   </head>
-  <body>
+  <body onload="doResize()">
     <H1>Signature Request</H1>
+    <P> To sign the following <A HREF="$(document)">$(type)</A>
+      (you may have to scroll the $(type) to see all of it)
     <P>
-      Please fill in or check the following information and click on
+      <IFRAME ID="frame" SRC="$(documentURL)" scrolling="auto"
+	      width="95%"
+	      style="border:3px solid $(borderColor);background-color:$(bquoteBGColor)">
+	Visit <A HREF="$(document)">$(document)</A> to read the $(type).
+    </IFRAME>
+    <P>
+      (SHA-256: $(digest))
+    <P>
+      please fill in or check the following information and click on
       the "Continue" button if everything is OK.  You will get a link
-      to the document with a digitally generated signature that you
+      to the $(type) with a digitally generated signature that you
       can submit.
     <P>
       <form action="https://localhost/docsig/" method="post">

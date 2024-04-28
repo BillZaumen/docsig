@@ -27,11 +27,12 @@
 	<LI><A HREF="#quickstart">Quick Start</A>.
 	<LI><A HREF="#intro">Introduction</A>.
 	<LI><A HREF="#forms">Forms</A>.
+	<LI> <A HREF="#generated">Generated Forms</A>.
 	<LI><A HREF="#queries">Query strings<A>.
 	<LI><A HREF="#pem">PEM Encodings</A>.
 	<LI><A HREF="#config">Configuration</A>.
 	<LI><A HREF="#startup">Startup</A>.
-	<LI><A HREF="#validation">Validation</A>.
+	<LI><A HREF="#validation">Validation and Table Generation</A>.<br>
 	  The following links can be used to install JAR files and
 	  to view or install API documentation:
 	  <P>
@@ -52,6 +53,7 @@
        <LI><A HREF="#proof">Verifying and Trusting Signatures</A>.
        <LI><A HREF="#source">Source code</A>.
        <LI><A HREF="#security">Security</A>.
+       <LI><A HREF="#extensibility">Extensibility</A>.
        <LI><A HREF="/PublicKeys">Public Keys</A> that have been
 	  created by this server.
       </UL>
@@ -286,7 +288,7 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
       text indicating that a specific document is being signed, plus
       some PEM encoded data used for processing.
 
-      <H2>Generated forms</H2>
+      <H2><A ID="generated">Generated forms</A></H2>
 
       To make it easier to create an HTML form, DOCSIG provides a
       "servlet adapter" for this purpose.  In this case, A YAML
@@ -297,30 +299,69 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
       the method GET, and the servlet parameters, The syntax is described
       in the documentation for
       <A HREF="/bzdev-api/org.bzdev.ejws/org/bzdev/ejws/ConfigurableWS.html">ConfigurableWS</A>.
-      The parameters are
+      The <A ID="requestParameters">parameters</A> are
       <UL>
 	<LI><B>bgcolor</B>: the CSS background color for the generated
           HTML page.  The default value is "rgb(10,10,25)".
-	<LI><B>color</B>: The CSS foreground color for the generated HTML page
+	<LI><B>color</B>: the CSS foreground color for the generated HTML page
 	  The default value is "rgb(255,255,255)".
-	<LI><B>inputBGColor</B>: The background color to use for controls in
+	<LI><B>linkColor</B>: the CSS color to use for links.  The default
+	  value is "rgb(65,225,128)".;
+	<LI><B>visitedColor</B>: the CSS color to use for visited links. The
+	  default value is "rgb(65,164,128)".
+	<LI><B>inputBGColor</B>: the CSS background color to use for controls in
 	  HTML forms. The default value is "rgb(10,10,64)".
-	<LI><B>inputFGColor</B>: The foreground color to use for
+	<LI><B>inputFGColor</B>: the CSS  foreground color to use for
 	  controls in HTML forms. The default value is
 	  "rgb(255,255,255)".
-	<LI><B>type</B>:  The document type. The default value is "document".
+	<LI><B>borderColor</B>: the CSS color of the border around an IFRAME
+	  showing the document. the default value is "steelblue".
+	<LI><B>type</B>:  the document type. The default value is "document".
 	<LI><B>document</B>: The document URL. This must be an absolute URL.
-	<LI><B>sendto</B>: The email reciptient.
+	<LI><B>sendto</B>: the email recipient.
 	<LI><B>cc</B>:  An optional email address to which to send a copy.
-	<LI><B>subject</B>: The subject line to use in an email message. The
+	<LI><B>subject</B>: the subject line to use in an email message. The
 	  default value is "Document Signature"
-	<LI><B>sigserver</B>: The URL for the signature server.
+	<LI><B>sigserver</B>: the URL for the signature server.
 	  This must be an absolute URL.
-	<LI><A ID="template"></A><B>template</B>: The file name for the
+	<LI><A ID="template"></A><B>template</B>: the file name for the
 	  <A HREF="/bzdev-api/org.bzdev.base/org/bzdev/util/TemplateProcessor.html">template</A>
 	  used to generate a signature-request page. The
 	  <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/src/org.bzdev.docsig/org/bzdev/docsig/request.tpl">default template</A>
 	  can be copied and then modified to customize the request.
+	<LI><B>fillText</B>. If the value is the string <B>true</B>, plain
+	  text will be filled and formatted to fit into an HTML IFRAME
+	  with appropriate indentation.  Otherwise (the default) the text
+	  is displayed as is.  For filled text,
+	  <UL>
+	    <LI> blank lines separate paragraphs.
+	    <LI> Indented lines starting with "*" followed by a white space
+	      (spaces and tabs) are formatted so that the '* is to the
+	      left of the paragraph, so that the result looks like a bullet.
+	    <LI> Indented lines starting with nonzero digit, followed by
+	      a period, and then whitespace is treated as part of a numbered
+	      list. The list will be indented, with the initial digit
+	      to its left.
+	  </UL>
+	  This is sufficient for simple formatting appropriate for
+	  short documents.  One advantage when <B>fillText</B>
+	  is <B>true</B> is that plain text files will fit
+	  horizontally within an IFRAME as the text will 'wrap' to
+	  keep the full line width visible.  The content type provided
+	  in HTTP headers for a plain text document must be
+	  text/plain.
+      </UL>
+      If a template is provided, the keys the template processor will
+      provide include the parameters listed above, except for
+      <B>textFill</B> and <B>template</B>, There are also two
+      additional keys for the template:
+      <UL>
+	<LI><B>digest</B>. This is the SHA-256 message digest of the
+	  document.
+	<LI><B>documentURL</B>. This is the URL given to an IFRAME.
+	  When the document is plain text, this URL will be one whose
+	  scheme is "data" (in order to be able to control the text
+	  and background colors for the IFRAME).
       </UL>
       For example,
       <BLOCKQUOTE><PRE>
@@ -339,9 +380,12 @@ contexts:
       subject: Document Signature
       sendto: sigs@example.com
       sigserver: https://example.com/docsig/
+      fillText: "true"
     propertyNames:
       - color
       - bgcolor
+      - linkColor
+      - visitedColor
       - inputFGColor
       - inputBGColor
     methods:
@@ -350,13 +394,13 @@ contexts:
 
 </PRE></BLOCKQUOTE>
       If there are multiple request forms, one should include a
-      "template" parameter aa described<A HREF="#template">above</A>
+      "template" parameter as described <A HREF="#template">above</A>
       and (of course) use a different prefix for each. The object
-      <B>propertyName</B> provides parameters whose names and values
-      were defined for the "config" object, including those not explicitly
-      listed but that have default values.
+      <B>propertyNames</B> in this example provides parameters whose
+      names and values were defined for the "config" object, including
+      those not explicitly listed but that have default values.
     <P>
-      To get the request form, use the URL
+      To <A HREF="requestQS">get the request form,/A>, use the URL
       <BLOCKQUOTE><PRE>
 
 https://example.com/request/?<B>QUERY_STRING</B>
@@ -365,15 +409,18 @@ https://example.com/request/?<B>QUERY_STRING</B>
       where <B>QUERY_STRING</B> is a query string providing the
       following parameters:
       <UL>
-        <LI><B>name</B>. The corresponsding value is the user's name.
+        <LI><B>name</B>. The corresponding value is the user's name.
         <LI><B>email</B>. The corresponding value is the user's email
            address.
-        <LI><B>id</B>. The corresponding value, which is optiona, is
+        <LI><B>id</B>. The corresponding value, which is optional, is
            the user's ID (typically a number or some other code).
         <LI><B>transid</B>. The corresponding value, which is
            optional, is a transaction ID to provide in the generated
            request.
       </UL>
+      For <STRONG>name</STRONG> or <STRONG>email</STRONG> are provided,
+      an input control is not provided when a query string provides the
+      value.
       For example,
       <BLOCKQUOTE><PRE>
 
@@ -834,7 +881,7 @@ config:
       the container is running so that an HTTP request goes to the
       system instead of the container running DOCSIG.
 
-      <H1><A ID="validation">Validating email</A></H1>
+      <H1><A ID="validation">Validating email and generating tables</A></H1>
 
       If the email messages containing signatures are saved
       in the <STRONG>mbox</STRONG> format, these can be processed
@@ -845,11 +892,135 @@ config:
 	<LI><A HREF="#scripting">Scripting</A>.
 	<LI><A HREF="#libdoc">Library documentation</A>.
       </UL>
+      It is possible, however, to configure the DOCSIG server to
+      generate tables.  In this case, a YAML configuration file must
+      be used. the "contexts" list should contain the following (the
+      prefix can be changed if desired):
+      <BLOCKQUOTE><PRE>
+
+  - prefix: /table/
+    className: ServletWebMap
+    arg: org.bzdev.docsig.TableAdapter
+    parameters:
+      accentColor: green
+    propertyNames:
+      - color
+      - bgcolor
+      - inputFGColor
+      - inputBGColor
+    methods:
+      - GET
+      - POST
+
+</PRE></BLOCKQUOTE>
+      Then a URL such as https://localhost/table/ will provide an HTML
+      page containing a form that will download a table in CSV (Comma
+      Separated Values) format describing the signatures found in a
+      a mail file that uses MBOX format. The form uses the following
+      <A ID="tableControls">controls</A>:
+      <UL>
+	<LI><STRONG>mbox</STRONG>. The name of the mbox file to upload.
+	<LI><STRONG>showHeadings</STRONG>. The value <B>true</B> when
+	  the table should contain headings naming each column.
+	<LI><STRONG>expectedDocument</STRONG>. When provided, the value
+	  is the URL of the document being signed. This value will be
+	  compared to that in each email.
+	<LI><STRONG>expectedDigest</STRONG>.. When provided, the value
+	  is the message digest of the document being signed. This
+	  value will be compared to that in each email.
+	<LI><STRONG>expectedServer</STRONG>. When provided, the value
+	  is the URL of for the server generating the signature. This
+	  value will be compared to that in each email.
+	<LI><STRONG>mode</STRONG>. The value can
+	  be <STRONG>all</STRONG> to show all entries (the
+	  default), <STRONG>valid</STRONG> to show only those whose
+	  status is <STRONG>true</STRONG>, or <STRONG>invalid</STRONG>
+	  to show only those whose status is <STRONG>false</STRONG>.
+	<LI><STRONG>columns</STRONG>. A comma-separated list of
+	  identifiers describing each column that will be
+	  included. One can use a custom column name, although the
+	  column will be left blank, but there are some reserved names
+	  for specific quantities. These are
+	  <A ID="columns"></A>
+	  <UL>
+	    <LI><STRONG>acceptedBy</STRONG>. The name of the person
+	      signing the document.
+	    <LI><STRONG>timestamp</STRONG>. The time the document
+	      signature was generated.
+	    <LI><STRONG>date</STRONG>. The date the document signature
+	      was generated.
+	    <LI><STRONG>timezone</STRONG>. The timezone used for the
+	      date.
+	    <LI><STRONG>ipaddr</STRONG>. The remote IP address the
+	      server used when the document was signed.
+	    <LI><STRONG>id</STRONG>. The ID of the person signing the
+	      document (e.g., a member ID or some other number
+	      assigned to the person signing the document). This field
+	      is optional.
+	    <LI><STRONG>transID</STRONG>. A transaction ID for the
+	      document signature request.  This field is optional.
+	    <LI><STRONG>email</STRONG>. The email address of the
+	      person signing the document as entered by that person.
+	    <LI><STRONG>server</STRONG>. The URL of the DOCSIG server.
+	    <LI><STRONG>sendto</STRONG>. The address to which the
+	      signature was sent.
+	    <LI><STRONG>cc</STRONG>. The address of an alternate
+	      recipient.  This field is optional.
+	    <LI><STRONG>document</STRONG>. The URL of the document
+	      being signed.
+	    <LI><STRONG>type</STRONG>. The type of the document (for
+	      example, "document", or "waiver").
+	    <LI><STRONG>digest</STRONG>. The SHA-256 message digest of
+	      the document being signed.
+	    <LI><STRONG>publicKeyID</STRONG>. The public-key id for
+	      the key used by the server when signing a message.
+	    <LI><STRONG>signature</STRONG>. The digital signature of
+	      the fields listed above.
+	    <LI><STRONG>from</STRONG>. The email address that appears
+	      in a message&apos;s <STRONG>from</STRONG> field.  This
+	      should be the same as that for <STRONG>email</STRONG>
+	      above.
+	    <LI><STRONG>message-id</STRONG>. The message ID for the
+	      message containing the signature.
+	    <LI><STRONG>status</STRONG>. The status of the message
+	      (true for valid and false if not valid).
+	    <LI><STRONG>reasons</STRONG>. A string giving reasons when
+	      the status is <STRONG>false</STRONG>.
+	  </UL>
+      </UL>
+    <P>
+      <A ID="tableCurl">To generate the table programmatically</A>, one
+      should issue a POST request containing data whose media type is
+      multipart/form-data and that provides the field names matching
+      the control names shown above.  For <STRONG>curl</STRONG>, each
+      <A HREF="#tableControls">control name</A> used has the argument
+      <BLOCKQUOTE><PRE>
+
+-F <I>NAME</I>=<I>VALUE</I>
+
+</PRE></BLOCKQUOTE>
+      where <I>NAME</I> is the name of a control and <I>VALUE</I> is
+      the corresponding value. For <B>mbox</B>, the value must start with
+      the character <B>@</B>, which tells <B>curl</B> that one is providing
+      the name of the file to upload. For example
+      <BLOCKQUOTE><PRE>
+
+curl -F mbox=@inbox.mbox -F columns=acceptedBy,email,status \
+     -F showHeadings=true -k https://localhost/table/
+
+</PRE></BLOCKQUOTE>
+      The <STRONG>-k</STRONG> option is usually not needed: it turns off some
+      security checks so that (in the example) a self-signed certificate
+      can be used.
+    <P>
+      If a CSV table is not appropriate, or additional filtering is
+      needed, DOCSIG also provides jar files for the validation
+      software. These are described below.
 
       <H2><A ID="installation">Installation</A></H2>
     <P>
-      To use the validation software, Java must be installed: at least
-      Java 11 and preferably Java 17. If the
+      To use the validation software directly, Java must be installed:
+      at least Java 11 and preferably Java 17. If the
       <A HREF="http://bzdev.org/">BZDev</A> class library has been
       installed, one should download a single file:
       <A HREF="/jars/docsig-web.jar">docsig-web.jar</A>. Otherwise,
@@ -1019,10 +1190,35 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
       the document being signed was the one provided to an individual
       and that individual intended to sign it.
       <UL>
-	<LI>The DOCSIG server will typically be maintained by a third
-	  party and can be trusted to behave as described in this document.
-	  The source code for the server is publicly available and is short
-	  enough that it can easily checked manually.
+	<LI> Intent is shown by the use of a multi-stage process, ending
+	  with the user explicitly sending an email message from the
+	  user's account.
+	<LI> The document being signed is referenced by a both a URL
+	  (which gives its location) and by a SHA-256 message digest,
+	  which is almost impossible to forge. SHA-255 is widely used for
+	  digital signatures and is an industry standard, vetted by the
+	  U.S. government.
+	<LI> All or nearly all email providers provide digital signatures
+	  on portions of email messages as a mechanism for eliminating
+	  SPAM, which frequently forges the sender email address.  These
+	  signatures are widely used by mainstream news organizations to
+	  verify that some public official actually sent a particular
+	  email.
+      </UL>
+      In addition, DOCSIG uses public-key encryption for its own
+      digital signatures. These signatures are used to show that
+      data used to generate emails have not been modified. Since
+      the data can reconstruct email contents, one can also verify
+      that the email contents have not been modified by a user. In
+      other words, an organization has assurances that a signature
+      sent by a user was the one actually generated.
+    <P>
+      In more detail,
+      <UL>
+	<LI>The DOCSIG server can be trusted to behave as described in
+	  this document: he source code for the server is publicly
+	  available and is short enough that it can easily checked
+	  manually.
 	<LI> The DOCSIG server will provide a digitally signed set of
 	  values that include (in order)
 	  <UL>
@@ -1073,7 +1269,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	<LI> GPG-signed (or PGP-signed) email for a fraction of the
 	  signatures provides some additional proof that nothing is
 	  being manipulated.  This is useful because it is a
-	  completely independent way to verify a signature.
+	  completely independent way to verify who the sender is.
       </UL>
 
       <H1> <A ID="source">Source code</A></H1>
@@ -1123,6 +1319,179 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	  and the JRE will load significantly faster and will use less
 	  memory.
       </UL>
+      <H1><A ID="extensibility">Extensibility</A></H1>
+    <P>
+      When a YAML configuration is used, the server can be extended
+      by adding new entries in the YAML files <B>contexts</B> list.
+      As stated above, the prefixes (the initial part of a URL's path)
+      that are reserved are
+      <UL>
+	<LI><STRONG>/</STRONG>
+	<LI><STRONG>/docsig</STRONG>
+	<LI><STRONG>/docsig-api</STRONG>
+	<LI><STRONG>bzdev-api</STRONG>
+	<LI><STRONG>/jars</STRONG>
+	<LI><STRONG>/PublicKeys</STRONG>
+      </UL>
+      as the DOCSIG software creates these automatically.
+      Each element in the list will contain an object providing key/value
+      pairs with the following keys:
+      <UL>
+	<LI><STRONG>prefix</STRONG>.  This is the initial portion of a
+	  path. If it does not end in a '/', a '/' will be added.
+	<LI><STRONG>className</STRONG>.
+	  This is the class name of a subclass of
+	  WebMap.
+	  Supported values are
+	  <UL>
+	    <LI><STRONG>DirWebMap</STRONG>. When this is used, the value
+	      of <STRONG>arg</STRONG> is the name of a directory.  For a
+	      Docker image, the directory is one in an image's container.
+	    <LI><STRONG>RedirectWebMap</STRONG>. When this is used, the value
+	      of <STRONG>arg</STRONG> is a URL to which requests should be
+	      redirected. The remainder of a request URL's path (the part after
+	      the prefix) will be appended to the URL provided by this
+	      argument.
+	    <LI><STRONG>ZipWebMap</STRONG>. When this is used, the value
+	      of <STRONG>arg</STRONG> is a ZIP file. For a Docker image,
+	      the file name is the one used in the image's container.
+	    <LI><STRONG>ResourceWebMap</STRONG>. When this is used, the value
+	      of <STRONG>arg</STRONG> is the initial portion of a Java
+	      resource name. This is not useful unless additional classes
+	      are placed on DOCSIG&apos;s class path. The
+	      <A HREF="/bzdev-api/org.bzdev.ejws/org/bzdev/ejws/maps/ResourceWebMap.html">ResourceWebMap documentation</A>
+	      contains the relevant API documentation for this class.
+	    <LI><STRONG>ServletWebMap</STRONG>. When this is used, the value
+	      of <STRONG>arg</STRONG> is the name of a subclass of
+	      <A HREF="/bzdev-api/org.bzdev.base/org/bzdev/net/ServletAdapter.html">ServletAdapter</A>. The values built into DOCSIG are
+	      <UL>
+		<LI><STRONG><A HREF="#requestAdapter">org.bzdev.docsig.RequestAdapter</A></STRONG>.
+		  This servlet adapter generates signature requests: a
+		  web page containing an HTML form that will also allow
+		  one to view the document being signed.
+		<LI><STRONG><A HREF="#sigAdapter">org.bzdev.docsig.SigAdapter</A></STRONG>. This servlet
+		  adapter generates the email that the user will send to
+		  sign a document.
+		<LI><STRONG><A HREF="#tableAdapter">org.bzdev.docsig.TableAdapter</A></STRONG>. This
+		  servlet adapter generates CSV (Comma Separated Values)
+		  files from a file containing email in mbox format. For
+		  an HTTP GET request, the servlet provides a web page
+		  with a form to fill out. For an HTTP POST request,
+		  this servlet adapter will generate the CSV file.
+	      </UL>
+	      The parameters for these are described below.
+	  </UL>
+	<LI><STRONG>arg</STRONG>. The argument used to figure a WebMap
+	  are listed above.
+	<LI><STRONG>useHTTP</STRONG>. When the value is <STRONG>true</STRONG>,
+	  the context will be used with HTTP but not HTTPS.
+	<LI><STRONG>welcome</STRONG>. The argument is list of 'welcome'
+	  pages, providing a path name relative to the prefix.
+	<LI><STRONG>parameters</STRONG>. The value is an object whose
+	  property names and corresponding values are used as parameter
+	  names and values, passed to a servlet adapter when it is
+	  initialized.
+	<LI><STRONG>propertyNames</STRONG>. The value is a list of
+	  property names provided in the files "config" section.
+	  These names and their values are then added as parameters.
+	<LI><STRONG>methods</STRONG>. The value is a list of
+	  the methods (DELETE, GET, HEAD, OPTIONS, POST, PUT, TRACE)
+	  that are supported.
+	<LI><STRONG>nowebxml</STRONG>. If the value is <STRONG>true</STRONG>,
+	  any web.xml file present will be ignored.
+	<LI><STRONG>displayDir</STRONG>. If the value
+	  is <STRONG>true</STRONG>, directories should be displayed if
+	  possible. Otherwise directories are not displayed.
+	<LI><STRONG>hideWebInf</STRONG>. If the value
+	  is <STRONG>true</STRONG>, a WEB-INF directory will not be
+	  displayed.
+	<LI> For the web maps that are listed above and that provide
+	  directories, several colors can be defined for use with
+	  when those directories are displayed. These are
+	  <UL>
+	    <LI><STRONG>color</STRONG>. The CSS color for text.
+	    <LI><STRONG>bgcolor</STRONG>. The CSS color for the background
+	    <LI><STRONG>linkColor</STRONG>. The CSS color for links.
+	    <LI><STRONG>visitedColor</STRONG>. The CSS color for visited
+	      links.
+	  </UL>
+	  There are defaults for each color, so only those that are
+	  changed from its default has to be included.  These colors
+	  do not apply when the class name is RedirectWebMap or
+	  ServletWebMap.
+	<LI><STRONG>trace</STRONG>. This should
+	  be <STRONG>true</STRONG> to turn on tracing for this
+	  prefix. The default is <STRONG>false</STRONG>.
+	<LI><STRONG>stacktrace</STRONG>. This should
+	  be <STRONG>true</STRONG> to turn if tracing should include a
+	  stack trace. The default is <STRONG>false</STRONG>.
+      </UL>
+    <P>
+      The following contains a description of the standard servlet
+      adapters
+      <H2><A ID="requestAdapter">RequestAdapter</A></H2>
+      <P>
+      The parameters are listed <A HREF="#requestParameters">above</A>.
+      <P>
+	Request adapters will provide an HTML form, possibly with fields
+	for the user to fill out. This form will also include a
+	button to submit it. The query string is described
+	<A HREF="#requestQS">above</A>.  With the default template,
+	the only data requested by the form will be the user's name
+	and email address.
+	
+
+      <H2><A ID="sigAdapter">SigAdapter</A></H2>
+
+      <P>
+	Signature adapters generate the email messages that must
+	be sent to submit a signature.
+	The parameters are
+	<UL>
+	  <LI><STRONG>bgcolor</STRONG>. The background color.
+	  <LI><STRONG>color</STRONG>. The foreground color.
+	  <LI><STRONG>linkColor</STRONG>. The color for links.
+	  <LI><STRONG>visitedColor</STRONG>. The color for visited links.
+	  <LI><STRONG>buttonBGColor</STRONG>. The background color for the
+	    'send' button.
+	  <LI><STRONG>buttonFGColor</STRONG>. The foreground color for the
+	    'send' button.
+	  <LI><STRONG>bquoteBGColor</STRONG>. The background color for
+	    block-quoted text.
+	  <LI><STRONG>timezone</STRONG>. The time zone to  use when a date
+	    is printed.
+	  <LI><STRONG>logFile</STRONG>. The name of a log file.  This must
+	    be different for each instance of this class.
+	  <LI><STRONG>publicKeyDir</STRONG>. The directory containing public
+	    the keys that were generated. This should be the same for
+	    all signature adapters.
+	</UL>
+      <P>
+	The parameters sent in an HTTP POST request for a SigAdapter
+	are described <A HREF="#forms">above</A>. The query string for
+	HTTP GET requests are also described <A HREF="#queries">above</A>.
+
+      <H2><A ID="tableAdapter">TableAdapter</A></H2>
+      <P>
+	Table adapters are used to create CSV files that can be
+	imported into spreadsheets or data bases.
+	The parameters are
+	<UL>
+	  <LI><STRONG>bgcolor</STRONG>. The background color.
+	  <LI><STRONG>color</STRONG>. The foreground color.
+	  <LI><STRONG>inputBGColor</STRONG>. The background color for a
+	    form&apos;s input field.
+	  <LI><STRONG>inputFGColor</STRONG>. The foreground color for a
+	    form&apos;s input field.
+	  <LI><STRONG>accentColor</STRONG>. This color is used in
+	    selected checkboxes and selected radio buttons.
+	</UL>
+      <P>
+	For an HTTP POST, the parameters that should be sent have the
+	same name and values as the controls listed
+	<A HREF="#tableControls">above</A>. The request can be
+	made <A HREF="#tableCurl">programmatically</A>, which is useful
+	for scripting.
   </body>
 </html>
 
@@ -1172,5 +1541,23 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  jdk httpserver PJAC sql localedata certlog busybox
  -->
-<!--  LocalWords:  CMD alwaysCreate
+<!--  LocalWords:  CMD alwaysCreate servlet className ServletWebMap
+ -->
+<!--  LocalWords:  arg inputBGColor inputFGColor borderColor IFRAME
+ -->
+<!--  LocalWords:  fillText textFill documentURL defs propertyNames
+ -->
+<!--  LocalWords:  transid Extensibility steelblue accentColor URL's
+ -->
+<!--  LocalWords:  showHeadings expectedDocument expectedDigest
+ -->
+<!--  LocalWords:  expectedServer programmatically WebMap DirWebMap
+ -->
+<!--  LocalWords:  RedirectWebMap ZipWebMap ResourceWebMap useHTTP
+ -->
+<!--  LocalWords:  ServletAdapter nowebxml displayDir hideWebInf
+ -->
+<!--  LocalWords:  stacktrace RequestAdapter SigAdapter logFile
+ -->
+<!--  LocalWords:  publicKeyDir TableAdapter checkboxes
  -->

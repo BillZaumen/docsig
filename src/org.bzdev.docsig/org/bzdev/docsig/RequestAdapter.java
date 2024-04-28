@@ -44,6 +44,10 @@ import org.bzdev.util.TemplateProcessor.KeyMap;
  *      The default value is "rgb(10,10,25)".
  *   <LI><B>color</B>: The CSS foreground color for the generated HTML page
  *      The default value is "rgb(255,255,255)".
+ *   <LI><B>linkColor</B>: The color to use for links.  The default
+ *      value is "rgb(65,225,128)".;
+ *   <LI><B>visitedColor</B>:The color to use for visited links. The
+ *      default value is "rgb(65,164,128)".
  *   <LI><B>inputBGColor</B>: The background color to use for controls in
  *       HTML forms. The default value is "rgb(10,10,64)".
  *   <LI><B>inputFGColor</B>: The foreground color to use for controls in HTML
@@ -69,16 +73,26 @@ public class RequestAdapter implements ServletAdapter {
 
     String bgcolor = "rgb(10,10,25)";
     String color = "white";
+    String linkColor = "rgb(65,225,128)";
+    String visitedColor = "rgb(65,164,128)";
     String inputBG = "rgb(10,10,64)";
     String inputColor = "white";
+    String bquoteBGColor = "rgb(32,32,32)";
+
     String type = "document";
 
     String document = null;
+    String documentURL = null;
+    String digest = null;
     String sendto = null;
     String cc = null;
     String subject = "Document Signature";
     String sigserver = null;
     File  template = null;
+    boolean fillText = false;
+
+    String borderColor = "steelblue";
+
 
 
     @Override
@@ -102,6 +116,21 @@ public class RequestAdapter implements ServletAdapter {
 		color = s;
 	    }
 	}
+	s = parameters.get("linkColor");
+	if (s != null) {
+	    s = s.trim();
+	    if (s.length() > 0) {
+		linkColor = s;
+	    }
+	}
+	s = parameters.get("visitedColor");
+	if (s != null) {
+	    s = s.trim();
+	    if (s.length() > 0) {
+		visitedColor = s;
+	    }
+	}
+
 	s = parameters.get("inputBGColor");
 	if (s != null) {
 	    s = s.trim();
@@ -130,6 +159,22 @@ public class RequestAdapter implements ServletAdapter {
 		subject = s;
 	    }
 	}
+	s = parameters.get("borderColor");
+	if (s != null) {
+	    s = s.trim();
+	    if (s.length() > 0) {
+		borderColor = s;
+	    }
+	}
+
+	s = parameters.get("bquoteBGColor");
+	if (s != null) {
+	    s = s.trim();
+	    if (s.length() > 0) {
+		bquoteBGColor = s;
+	    }
+	}
+
 	String key = "document";
 	s = parameters.get(key);
 	if (s == null) {
@@ -178,8 +223,9 @@ public class RequestAdapter implements ServletAdapter {
 	    sigserver = s;
 	}
 	key = "template";
-	s = parameters.get(key).trim();
+	s = parameters.get(key);
 	if (s != null) {
+	    s = s.trim();
 	    template = new File(s);
 	    if (!(template.isFile() && template.canRead())) {
 		String msg = "File \"" + s  +"\" not readable or not an "
@@ -188,12 +234,154 @@ public class RequestAdapter implements ServletAdapter {
 	    }
 	}
 	
+
+	key  = "fillText";
+	s = parameters.get(key);
+	if (s != null) {
+	    s = s.trim();
+	    fillText = Boolean.parseBoolean(s);
+	}
+    }
+
+    static  MessageDigest createMD() {
+	try {
+	    return MessageDigest.getInstance("SHA-256");
+	} catch (Exception e) {
+	    return null;
+	}
+    }
+
+    static String bytesToHex(byte[] bytes) {
+	final char[] hexArray = {'0','1','2','3','4','5','6','7','8','9',
+				 'a','b','c','d','e','f'};
+	char[] hexChars = new char[bytes.length * 2];
+	int v;
+	for ( int j = 0; j < bytes.length; j++ ) {
+	    v = bytes[j] & 0xFF;
+	    hexChars[j * 2] = hexArray[v >>> 4];
+	    hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+	}
+	return new String(hexChars);
     }
 
     @Override
     public void doGet(HttpServerRequest req, HttpServerResponse res)
 	throws IOException, ServletAdapter.ServletException
     {
+
+	if (documentURL == null) {
+	    try {
+		URL url = new URL(document);
+		URLConnection urlc = url.openConnection();
+		String mtype = urlc.getContentType();
+		int ind = mtype.indexOf(";");
+		if (ind != -1) {
+		    mtype = mtype.substring(0, ind).trim();
+		}
+		InputStream is = urlc.getInputStream();
+		ByteArrayOutputStream os1 = new ByteArrayOutputStream(8192);
+		is.transferTo(os1);
+		byte[] bytes = os1.toByteArray();
+		MessageDigest md = createMD();
+		md.update(bytes);
+		digest = bytesToHex(md.digest());
+		if (mtype.equalsIgnoreCase("text/plain")) {
+		    is = new ByteArrayInputStream(bytes);
+		    Reader r = new InputStreamReader(is, UTF8);
+		    StringBuffer sb = new StringBuffer();
+		    AppendableWriter aw = new AppendableWriter(sb);
+		    PrintWriter w = new PrintWriter(aw);
+		    String hdr =
+			"<!DOCTYPE html><html lang=\"en\"><head>"
+			+ "<meta charset=\"UTF-8\">"
+			+ "<meta name=\"viewport\" "
+			+ "content=\"width=device-width, "
+			+ "initial-scale=1.0\">\r\n"
+			+ "<style type=\"text/css\">\r\n"
+			+ "BODY {\r\n"
+			+ "   background-color: " + bquoteBGColor + ";\r\n"
+			+ "   color: " + color + ";\r\n"
+			+ "   margin: 2em;\r\n"
+			+ "}\r\n"
+			+ "</style>\r\n"
+			+ "</head><body>";
+			r.transferTo(w);
+		    w.flush();
+		    String data;
+		    if (fillText) {
+			String[] paragraphs = sb.toString()
+			    .split("(\\s*\\n){2,}");
+			sb.setLength(0);
+			for (String paragraph: paragraphs) {
+			    paragraph = paragraph.replaceAll("^\\h+", " ");
+			    int len = paragraph.length();
+			    if (paragraph.startsWith(" ") && len > 2) {
+				String shift = null;
+				String bullet = null;
+				char ch1 = paragraph.charAt(1);
+				char ch2 = paragraph.charAt(2);
+				char ch3 = (len > 3)? paragraph.charAt(3): '\0';
+				if (ch2 == ' ' || ch2 == '\t' || ch2 == '.') {
+				    switch(ch1) {
+				    case '*':
+					if (ch2 == ' ' || ch2 == '\t') {
+					    paragraph = paragraph.substring(2);
+					    bullet = "&bull;";
+					    shift = "-0.9em";
+					}
+					break;
+				    case '1':
+				    case '2':
+				    case '3':
+				    case '4':
+				    case '5':
+				    case '6':
+				    case '7':
+				    case '8':
+				    case '9':
+					if (ch2 == '.' && (ch3 == ' '
+							   || ch3 == '\t')) {
+					    paragraph = paragraph.substring(1);
+					    shift = "-1.25em";
+					}
+				    }
+				}
+				if (shift != null) {
+				    sb.append("<P style=\"margin-left: 2em;"
+					      + "text-indent:" + shift +";"
+					      +"\">");
+				    if (bullet != null) {
+					sb.append(bullet);
+				    }
+				} else {
+				    sb.append("<P style=\"margin-left: 2em\">");
+				}
+			    } else {
+				sb.append("<P>");
+			    }
+			    paragraph = WebEncoder.htmlEncode(paragraph);
+			    sb.append(paragraph);
+			}
+			data = hdr + sb.toString() + "<body></html>";
+		    } else {
+			data = hdr + "<pre>"
+			    + WebEncoder.htmlEncode(sb.toString())
+			    +"</pre></body></html>";
+		    }
+		    // We need %20 instead of '+' for the data URL to work.
+		    data = URLEncoder.encode(data).replace("+", "%20");
+		    // System.out.println("data = " + data);
+		    documentURL = "data:text/html," + data;
+		} else {
+		    documentURL = document;
+		}
+	    } catch (Exception e) {
+		documentURL = null;
+		String msg = "cannot handle " + document;
+		throw new ServletAdapter.ServletException(msg, e);
+	    }
+	}
+
 	String name = req.getParameter("name");
 	if (name != null) name = name.trim();
 	if (name == null || name.length() == 0) {
@@ -218,9 +406,16 @@ public class RequestAdapter implements ServletAdapter {
 	TemplateProcessor.KeyMap keymap = new  TemplateProcessor.KeyMap();
 	keymap.put("bgcolor", bgcolor);
 	keymap.put("color", color);
+	keymap.put("linkColor", linkColor);
+	keymap.put("visitedColor", visitedColor);
 	keymap.put("inputBG", inputBG);
 	keymap.put("inputColor", inputColor);
+	keymap.put("borderColor", borderColor);
+	keymap.put("bquoteBGColor", bquoteBGColor);
+	keymap.put("digest", digest);
+
 	keymap.put("type", WebEncoder.htmlEncode(type));
+	keymap.put("documentURL", documentURL);
 	keymap.put("document", WebEncoder.htmlEncode(document));
 	keymap.put("sendto", WebEncoder.htmlEncode(sendto));
 	if (cc != null) {
@@ -249,7 +444,7 @@ public class RequestAdapter implements ServletAdapter {
 	Reader r = (template == null)?
 	    new InputStreamReader(getClass().getResourceAsStream("request.tpl"),
 				  UTF8):
-	    new FileReader(template, UTF8);;
+	    new FileReader(template, UTF8);
 	tp.processTemplate(r, w);
 	w.flush();
 	byte[]results = baos.toByteArray();
