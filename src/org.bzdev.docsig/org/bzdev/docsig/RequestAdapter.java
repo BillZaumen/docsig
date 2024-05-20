@@ -234,7 +234,6 @@ public class RequestAdapter implements ServletAdapter {
 	    }
 	}
 	
-
 	key  = "fillText";
 	s = parameters.get(key);
 	if (s != null) {
@@ -423,7 +422,6 @@ public class RequestAdapter implements ServletAdapter {
 	}
 	keymap.put("subject", WebEncoder.htmlEncode(subject));
 	keymap.put("sigserver", WebEncoder.htmlEncode(sigserver));
-
 	if (name != null) {
 	    keymap.put("name", WebEncoder.htmlEncode(name));
 	}

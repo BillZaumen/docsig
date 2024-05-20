@@ -13,6 +13,7 @@ import java.security.spec.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.zip.*;
@@ -135,7 +136,9 @@ public class DocsigVerifier {
     static private String[] headerKeys = {
 	"acceptedBy", "timestamp", "date", "timezone", "ipaddr",
 	"id", "transID", "email", "server", "sendto", "cc",
-	"document", "type", "digest", "publicKeyID"
+	"document", "type", "digest",
+	"emailTemplateURL", "emailTemplateDigest",
+	"publicKeyID"
     };
 
     /**
@@ -502,6 +505,35 @@ public class DocsigVerifier {
 	return decodeFromMbox(r, ew, null, null, null);
     }
 
+    private static int MAX_ENTRIES = 1;
+
+    public static void needMAX_ENTRIES(int max) {
+	if (max > MAX_ENTRIES) {
+	    MAX_ENTRIES = max;
+	}
+    }
+
+    private static Map<URL,String> ucache =
+	Collections.synchronizedMap(new LinkedHashMap<URL,String>() {
+		protected boolean removeEldestEntry(Map.Entry entry) {
+		    return size() > MAX_ENTRIES;
+		}
+	    });
+
+    private static Reader urlReader(URL url) throws IOException {
+	URLConnection urlc = url.openConnection();
+	InputStream is = urlc.getInputStream();
+	ByteArrayOutputStream boas = new ByteArrayOutputStream(4096);
+	is.transferTo(boas);
+	byte[] bytes = boas.toByteArray();
+	MessageDigest md = createMD();
+	md.update(bytes);
+	String digest = bytesToHex(md.digest());
+	is = new ByteArrayInputStream(bytes);
+	ucache.put(url, digest);
+	return new InputStreamReader(is, UTF8);
+    }
+
     /**
      * Decode multiple messages stored using mbox format, also
      * providing a {@link PrintWriter} for error messages and optionally
@@ -714,6 +746,23 @@ public class DocsigVerifier {
 			String date = hdrs.getFirst("date");
 			String timezone = hdrs.getFirst("timezone");
 			String sigserver = hdrs.getFirst("server");
+			String emailurl = hdrs.getFirst("emailTemplateURL");
+			String udigest = hdrs.getFirst("emailTemplateDigest");
+
+			URL emailTemplateURL;
+			boolean hasEmailTemplateURL = true;
+			if (emailurl != null) {
+			    try {
+				emailTemplateURL = new URL(emailurl);
+			    } catch (MalformedURLException eurl) {
+				result.setStatus(false);
+				result.addToReasons("BadEmailTemplateURL");
+				emailTemplateURL = null;
+				hasEmailTemplateURL = false;
+			    }
+			} else {
+			    emailTemplateURL = null;
+			}
 			if (expectedDocument != null) {
 			    if (!expectedDocument.equals(document)) {
 				result.setStatus(false);
@@ -750,20 +799,42 @@ public class DocsigVerifier {
 			keymap.put("digest", md);
 			keymap.put("PEM", PEM_START);
 			TemplateProcessor tp = new TemplateProcessor(keymap);
-			r = new
-			    InputStreamReader(DocsigVerifier.class
-					      .getResourceAsStream("email.tpl"),
-					      UTF8);
+			if (hasEmailTemplateURL) {
+			    if (emailTemplateURL == null) {
+				r = new InputStreamReader
+				    (DocsigVerifier.class
+				     .getResourceAsStream("email.tpl"),
+				     UTF8);
+			    } else {
+				try {
+				    r = urlReader(emailTemplateURL);
+				    if (udigest == null ||
+					!ucache.get(emailTemplateURL)
+					.equals(udigest)) {
+					result.setStatus(false);
+					result.addToReasons
+					    ("emailTemplateDigest");
+				    }
+				} catch (IOException eio) {
+				    result.setStatus(false);
+				    result.addToReasons("emailTemplateIO");
+				    r = null;
+				}
+			    }
+			} else {
+			    r = null;
+			}
 			StringBuilder msg = new StringBuilder(1024);
-			AppendableWriter aw = new AppendableWriter(msg);
-			tp.processTemplate(r, aw);
-			aw.flush(); r.close(); aw.close();
-			
-			String desired = msg.toString().replace("\r\n","\n")
-			    .replaceAll("\\s+", " ").trim();
-			if (!s.equals(desired)) {
-			    result.setStatus(false);
-			    result.addToReasons("ModifiedEmail");
+			if (r != null) {
+			    AppendableWriter aw = new AppendableWriter(msg);
+			    tp.processTemplate(r, aw);
+			    aw.flush(); r.close(); aw.close();
+			    String desired = msg.toString().replace("\r\n","\n")
+				.replaceAll("\\s+", " ").trim();
+			    if (!s.equals(desired)) {
+				result.setStatus(false);
+				result.addToReasons("ModifiedEmail");
+			    }
 			}
 		    }
 		    list.add(result);

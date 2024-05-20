@@ -110,17 +110,17 @@ public class SigAdapter implements ServletAdapter {
 	byte[] contents;
     }
     
-    static final int MAX_ENTRIES = 64;
-
-    static Map<String,Entry> cache = new LinkedHashMap<String,Entry>() {
-	    protected boolean removeEldestEntry(Map.Entry entry) {
-		return size() > MAX_ENTRIES;
-	    }
-	};
-
-    static {
-	cache = Collections.synchronizedMap(cache);
+    private int MAX_ENTRIES = 32;
+    void setMAX_ENTRIES(int max) {
+	MAX_ENTRIES = max;
     }
+
+    private Map<String,Entry> cache = Collections
+	.synchronizedMap(new LinkedHashMap<String,Entry>(MAX_ENTRIES) {
+		protected boolean removeEldestEntry(Map.Entry entry) {
+		    return size() > MAX_ENTRIES;
+		}
+	    });
 
     String color = null;
     String bgcolor = null;
@@ -133,6 +133,35 @@ public class SigAdapter implements ServletAdapter {
     File logFile = null;
     String timezone = null;
     ZoneId zoneID = null;
+    URL emailTemplateURL = null;
+
+    static File defaultLogFile = null;
+
+    /**
+     * Set the log file.
+     */
+    public static void setDefaultLogFile(File logFile) {
+	defaultLogFile = logFile;
+    }
+
+    static File defaultPublicKeyDir = null;
+
+    /**
+     * Set the default public key directory.
+     */
+    public static void setDefaultPublicKeyDir(File dir) throws IOException {
+	if (dir != null) {
+	    dir.mkdirs();
+	    defaultPublicKeyDir = dir;
+	    if (!(dir.isDirectory() && dir.canRead() && dir.canWrite())) {
+		throw new IOException("File " + dir
+				      + " not a readable"
+				      + " and writable directory");
+	    }
+	} else {
+	    throw new NullPointerException("argument is null, not a directory");
+	}
+    }
 
     @Override
     public void init(Map<String,String>parameters)
@@ -157,6 +186,28 @@ public class SigAdapter implements ServletAdapter {
 	buttonBGColor = parameters.get("buttonBGColor");
 	bquoteBGColor = parameters.get("bquoteBGColor");
 
+	if (color == null || color.trim().length() == 0) {
+	    color = "white";
+	}
+	if (bgcolor == null || bgcolor.trim().length() == 0) {
+	    bgcolor = "rgb(10,10,25)";
+	}
+	if (linkColor == null || linkColor.trim().length() == 0) {
+	    linkColor = "rgb(65,225,128)";
+	}
+	if (visitedColor == null || visitedColor.trim().length() == 0) {
+	    visitedColor = "rgb(65,164,128)";
+	}
+	if (buttonFGColor == null || buttonFGColor.trim().length() == 0) {
+	    buttonFGColor = "white";
+	}
+	if (buttonBGColor == null || buttonBGColor.trim().length() == 0) {
+	    buttonBGColor = "rgb(10,10,64)";
+	}
+	if (bquoteBGColor == null || bquoteBGColor.trim().length() == 0) {
+	    bquoteBGColor = "rgv(32,32,32)";
+	}
+
 	timezone = parameters.get("timezone");
 	if (timezone != null) {
 	    // DocsigServer already checked that the time zone is a
@@ -166,32 +217,74 @@ public class SigAdapter implements ServletAdapter {
 	    timezone = ZoneId.systemDefault().getId();
 	}
 
+	String emailurl = parameters.get("emailTemplateURL");
+	try {
+	    emailTemplateURL = (emailurl == null)? null:
+		new URL(emailurl);
+	} catch (MalformedURLException eurl) {
+	    String msg = "Malformed URL: " + emailurl;
+	    throw new ServletAdapter.ServletException(msg, eurl);
+	}
+
 	String logFileName = parameters.get("logFile");
-	logFile = (logFileName != null)? new File(logFileName): null;
+	logFile = (logFileName != null)? new File(logFileName): defaultLogFile;
 
 	String keydir = parameters.get("publicKeyDir");
 	if (keydir != null) {
 	    publicKeyDir = new File(keydir);
 	    publicKeyDir.mkdirs();
-	    if (publicKeyDir.isDirectory()) {
-		byte[]contents = publicKey.getBytes(UTF8);
-		MessageDigest md = createMD();
-		md.update(contents);
-		String fname = bytesToHex(md.digest()) + ".pem";
-		try {
-		    File keyf = new File(publicKeyDir, fname);
-		    if (!keyf.exists()) {
-			OutputStream os = new FileOutputStream(keyf);
-			os.write(contents);
-			os.flush();
-			os.close();
-		    }
-		} catch (Exception e) {
-		    throw new ServletAdapter.ServletException
-			("Cannot create PEM file", e);
+	} else {
+	    publicKeyDir = defaultPublicKeyDir;
+	}
+	if (publicKeyDir != null) {
+	    byte[]contents = publicKey.getBytes(UTF8);
+	    MessageDigest md = createMD();
+	    md.update(contents);
+	    String fname = bytesToHex(md.digest()) + ".pem";
+	    try {
+		File keyf = new File(publicKeyDir, fname);
+		if (!keyf.exists()) {
+		    OutputStream os = new FileOutputStream(keyf);
+		    os.write(contents);
+		    os.flush();
+		    os.close();
 		}
+	    } catch (Exception e) {
+		throw new ServletAdapter.ServletException
+		    ("Cannot create PEM file", e);
+	    }
+	} else {
+		throw new ServletAdapter.ServletException
+		    ("No public-key directory");
+	}
+	String nthreads = parameters.get("nthreads");
+	if (nthreads != null) {
+	    try {
+		int nt = Integer.parseInt(nthreads);
+		if (nt <= 0) {
+		    throw new Exception("Not positive");
+		}
+		setMAX_CACHED(nt);
+	    } catch (Exception e) {
+		    throw new ServletAdapter.ServletException
+			("Illegal number of threads: " + nthreads, e);
 	    }
 	}
+	String ndocs = parameters.get("numberOfDocuments");
+	if (ndocs != null) {
+	    try {
+		int nd = Integer.parseInt(ndocs);
+		if (nd <= 0) {
+		    throw new Exception("Not positive");
+		}
+		setMAX_ENTRIES(nd);
+	    } catch (Exception e) {
+		    throw new ServletAdapter.ServletException
+			("Illegal number of documents: " + ndocs, e);
+	    }
+	    
+	}
+	
     }
 
     static void sendSimpleResponse(HttpServerResponse res, int code,
@@ -502,6 +595,37 @@ public class SigAdapter implements ServletAdapter {
 	}
     }
 
+    private int MAX_CACHED = 50; // default number of threads
+    void setMAX_CACHED (int max) {
+	MAX_CACHED = max;
+    }
+
+    private  Map<URL,String> ucache = Collections
+	.synchronizedMap(new LinkedHashMap<URL,String>() {
+		protected boolean removeEldestEntry(Map.Entry entry) {
+		    return size() > MAX_CACHED;
+		}
+	    });
+
+    private Reader urlReader(URL url) throws ServletAdapter.ServletException {
+	try {
+	    URLConnection urlc = url.openConnection();
+	    InputStream is = urlc.getInputStream();
+	    ByteArrayOutputStream boas = new ByteArrayOutputStream(4096);
+	    is.transferTo(boas);
+	    byte[] bytes = boas.toByteArray();
+	    MessageDigest md = createMD();
+	    md.update(bytes);
+	    String digest = bytesToHex(md.digest());
+	    is = new ByteArrayInputStream(bytes);
+	    ucache.put(url, digest);
+	    return new InputStreamReader(is, UTF8);
+	} catch (IOException e) {
+	    String msg = "Cannot read the content of URL " + url.toString();
+	    throw new ServletAdapter.ServletException(msg, e);
+	}
+    }
+
     @Override
     public void doPost(HttpServerRequest req, HttpServerResponse res)
 	throws IOException, ServletAdapter.ServletException
@@ -600,6 +724,13 @@ public class SigAdapter implements ServletAdapter {
 		}
 		return;
 	    }
+	    Reader r = (emailTemplateURL == null)?
+		new InputStreamReader(getClass()
+				      .getResourceAsStream("email.tpl"),
+				      UTF8):
+		urlReader(emailTemplateURL);
+	    String udigest = (emailTemplateURL == null)? null:
+		ucache.get(emailTemplateURL);
 	    String mediaType = hurlc.getContentType();
 	    ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
 	    is.transferTo(baos);
@@ -633,6 +764,13 @@ public class SigAdapter implements ServletAdapter {
 	    sb.append("document: "); sb.append(document);sb.append(CRLF);
 	    sb.append("type: "); sb.append(type); sb.append(CRLF);
 	    sb.append("digest: "); sb.append(digest); sb.append(CRLF);
+	    if (emailTemplateURL != null) {
+		sb.append("emailTemplateURL: ");
+		sb.append(emailTemplateURL.toString());
+		sb.append(CRLF);
+		sb.append("emailTemplateDigest: " + udigest);
+		sb.append(CRLF);
+	    }
 	    sb.append("publicKeyID: "); sb.append(pemDigest); sb.append(CRLF);
 	    try {
 		Signature signer = sbuPrivate.getSigner();
@@ -656,6 +794,11 @@ public class SigAdapter implements ServletAdapter {
 		signer.update((document+CRLF).getBytes(UTF8));
 		signer.update((type + CRLF).getBytes(UTF8));
 		signer.update((digest+CRLF).getBytes(UTF8));
+		if (emailTemplateURL != null) {
+		    signer.update((emailTemplateURL.toString() + CRLF)
+				  .getBytes(UTF8));
+		    signer.update((udigest + CRLF).getBytes(UTF8));
+		}
 		signer.update((pemDigest+CRLF).getBytes(UTF8));
 		sb.append("signature: ");
 		sb.append(bytesToHex(signer.sign()) + CRLF);
@@ -684,9 +827,6 @@ public class SigAdapter implements ServletAdapter {
 	    keymap.put("PEM", sb.toString());
 	    TemplateProcessor tp = new TemplateProcessor(keymap);
 	    AppendableWriter aw = new AppendableWriter(body);
-	    Reader r = new
-		InputStreamReader(getClass().getResourceAsStream("email.tpl"),
-				  UTF8);
 	    tp.processTemplate(r, aw);
 	    aw.flush(); r.close(); aw.close();
 	    String bodystr = body.toString();

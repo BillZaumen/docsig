@@ -6,6 +6,8 @@ var in = global.getReader();
 var out = global.getWriter();
 var err = global.getErrorWriter();
 
+reduceSecurity();
+
 var results = decodeFromMbox(in, err);
 
 var list = ["acceptedBy", "date", "ipaddr", "id",

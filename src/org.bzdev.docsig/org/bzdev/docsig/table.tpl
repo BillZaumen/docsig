@@ -40,7 +40,7 @@
 	<LABEL for="chbox">Show Headings</LABEL>
 	<br><br>
 	Expected-Document URL: <INPUT name="expectedDocument" width="64"> <br>
-	Expected-Digest URL: <INPUT name="expectedDigest" width="64"> <br>
+	Expected-Document Digest: <INPUT name="expectedDigest" width="64"> <br>
 	Expected-Server URL: <INPUT name="expectedServer" width="64"> <br>
 	<br><br>Include:
 	<BLOCKQUOTE>

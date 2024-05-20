@@ -26,7 +26,7 @@ public class DocsigServer {
     // configuration file.
     static final Set<String> extraPropNames =
 	Set.of("buttonFGColor", "buttonBGColor", "bquoteBGColor",
-	       "inputFGColor", "inputBGColor",
+	       "inputFGColor", "inputBGColor", "publicKeyDir",
 	       "timezone");
 
     public static void main(String argv[]) throws Exception {
@@ -54,6 +54,7 @@ public class DocsigServer {
 	String buttonBGColor = "rgb(10,10,64)";
 	String bquoteBGColor = "rgb(32,32,32)";
 	String timezone = null;
+	String publicKeyDir = null;
 
 	File cdir = new File(System.getProperty("user.dir"));
 	File uadir = new File("/usr/app");
@@ -135,6 +136,23 @@ public class DocsigServer {
 
 	    if (dir == null) dir = new File(System.getProperty("user.dir"));
 
+	    if (argv.length > offset) {
+		String fs = System.getProperty("file.separator");
+		fs = argv[offset].endsWith(fs)? "": fs;
+		File pkd = new File(argv[offset] + fs + "PublicKeys");
+		try {
+		    SigAdapter.setDefaultPublicKeyDir(pkd);
+		} catch (IOException eio) {
+		    log = (logFile == null)? System.out:
+			new PrintStream(logFile, UTF8);
+		    log.println("No public key dir: " + eio.getMessage());
+		    log.flush();
+		    log.close();
+		    System.exit(1);
+		}
+		SigAdapter.setDefaultLogFile(logFile);
+	    }
+
 	    if (configFile.canRead()) {
 		server = new ConfigurableWS(extraPropNames,
 					    configFile,
@@ -196,11 +214,20 @@ public class DocsigServer {
 
 	    Map<String,String> parameters = new HashMap<>();
 
-	    if (argv.length > offset) {
-		String fs = System.getProperty("file.separator");
-		fs = argv[offset].endsWith(fs)? "": fs;
-		parameters.put("publicKeyDir", argv[offset]
-			       + fs + "PublicKeys");
+	    publicKeyDir = server.getProperties()
+		.getProperty("publicKeyDir");
+	    if (publicKeyDir != null) {
+		parameters.put("publicKeyDir", publicKeyDir);
+	    } else {
+		// will use default, set above,  instead,
+		/*
+		if (argv.length > offset) {
+		    String fs = System.getProperty("file.separator");
+		    fs = argv[offset].endsWith(fs)? "": fs;
+		    parameters.put("publicKeyDir", argv[offset]
+				   + fs + "PublicKeys");
+		}
+		*/
 	    }
 
 	    parameters.put("color", color);

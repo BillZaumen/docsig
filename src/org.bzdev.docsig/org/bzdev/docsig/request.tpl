@@ -47,7 +47,7 @@
       to the $(type) with a digitally generated signature that you
       can submit.
     <P>
-      <form action="https://localhost/docsig/" method="post">
+      <form action="$(sigserver)" method="post">
 	Name: $(+name:endName)$(name)
 	<input name="name" type="hidden" value="$(name)">$(endName)
 	$(-name:endName)
