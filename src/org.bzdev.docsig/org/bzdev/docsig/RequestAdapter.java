@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
@@ -78,6 +79,7 @@ public class RequestAdapter implements ServletAdapter {
     String inputBG = "rgb(10,10,64)";
     String inputColor = "white";
     String bquoteBGColor = "rgb(32,32,32)";
+    String frameFraction = "0.5";
 
     String type = "document";
 
@@ -92,8 +94,23 @@ public class RequestAdapter implements ServletAdapter {
     boolean fillText = false;
 
     String borderColor = "steelblue";
+    String additionalFormElements = null;
 
 
+    Set<String> inputTypes = Set
+	.of("hidden", "text", "tel", "url", "email",
+	    "password", "dateTime", "date", "time",
+	    "datetime-local", "number", "range", "color",
+	    "checkbox", "radio");
+
+    Set<String> inputAttr = Set
+	.of("type", "checked", "value", "valueAsDate", "valueAsNumber",
+	    "height", "width", "step", "size", "max", "min", "inputmode",
+	    "maxlength", "multiple", "placeholder", "readonly", "label",
+	    "heading", "name", "id");
+
+    Set<String> noValAttr = Set
+	.of("checked", "multiple", "readonly", "required");
 
     @Override
     public void init(Map<String,String>parameters)
@@ -177,15 +194,8 @@ public class RequestAdapter implements ServletAdapter {
 
 	String key = "document";
 	s = parameters.get(key);
-	if (s == null) {
-	    throw new ServletAdapter.ServletException("missing parameter: "
-						      + key);
-	} else {
+	if (s != null) {
 	    s = s.trim();
-	    if (s.length() == 0) {
-		throw new ServletAdapter.ServletException("missing parameter: "
-							  + key);
-	    }
 	    document = s;
 	}
 	key = "sendto";
@@ -240,6 +250,13 @@ public class RequestAdapter implements ServletAdapter {
 	    s = s.trim();
 	    fillText = Boolean.parseBoolean(s);
 	}
+
+	key = "additionalFormElements";
+	s = parameters.get(key);
+	if (s != null) {
+	    s.trim();
+	    additionalFormElements = s;
+	}
     }
 
     static  MessageDigest createMD() {
@@ -268,7 +285,7 @@ public class RequestAdapter implements ServletAdapter {
 	throws IOException, ServletAdapter.ServletException
     {
 
-	if (documentURL == null) {
+	if (document != null && documentURL == null) {
 	    try {
 		URL url = new URL(document);
 		URLConnection urlc = url.openConnection();
@@ -411,11 +428,16 @@ public class RequestAdapter implements ServletAdapter {
 	keymap.put("inputColor", inputColor);
 	keymap.put("borderColor", borderColor);
 	keymap.put("bquoteBGColor", bquoteBGColor);
+	keymap.put("frameFraction", frameFraction);
 	keymap.put("digest", digest);
 
 	keymap.put("type", WebEncoder.htmlEncode(type));
-	keymap.put("documentURL", documentURL);
-	keymap.put("document", WebEncoder.htmlEncode(document));
+	if (documentURL != null) {
+	    keymap.put("documentURL", documentURL);
+	}
+	if (document != null) {
+	    keymap.put("document", WebEncoder.htmlEncode(document));
+	}
 	keymap.put("sendto", WebEncoder.htmlEncode(sendto));
 	if (cc != null) {
 	    keymap.put("cc", WebEncoder.htmlEncode(cc));
@@ -433,6 +455,9 @@ public class RequestAdapter implements ServletAdapter {
 	}
 	if (transid != null) {
 	    keymap.put("transid", WebEncoder.htmlEncode(transid));
+	}
+	if (additionalFormElements != null) {
+	    keymap.put("additionalFormElements", additionalFormElements);
 	}
 
 	TemplateProcessor tp = new TemplateProcessor(keymap);

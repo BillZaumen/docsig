@@ -27,7 +27,7 @@ public class DocsigServer {
     static final Set<String> extraPropNames =
 	Set.of("buttonFGColor", "buttonBGColor", "bquoteBGColor",
 	       "inputFGColor", "inputBGColor", "publicKeyDir",
-	       "timezone");
+	       "timezone", "emailTemplateURL");
 
     public static void main(String argv[]) throws Exception {
 	boolean defaultTrace = false;
@@ -54,6 +54,7 @@ public class DocsigServer {
 	String buttonBGColor = "rgb(10,10,64)";
 	String bquoteBGColor = "rgb(32,32,32)";
 	String timezone = null;
+	String emailTemplateURL = null;
 	String publicKeyDir = null;
 
 	File cdir = new File(System.getProperty("user.dir"));
@@ -178,6 +179,12 @@ public class DocsigServer {
 		    log.println("timezone = " + timezone);
 		}
 
+		emailTemplateURL = props.getProperty("emailTemplateURL");
+		if (emailTemplateURL != null) {
+		    emailTemplateURL = emailTemplateURL.trim();
+		    log.println("emailTemplateURL = " + emailTemplateURL);
+		}
+
 		log.println("buttonFGColor = " + buttonFGColor);
 		log.println("buttonBGColor = " + buttonBGColor);
 		log.println("bquoteBGColor = " + bquoteBGColor);
@@ -239,6 +246,9 @@ public class DocsigServer {
 	    parameters.put("bquoteBGColor", bquoteBGColor);
 	    if (timezone != null) {
 		parameters.put("timezone", timezone);
+	    }
+	    if (emailTemplateURL != null) {
+		parameters.put("emailTemplateURL", emailTemplateURL);
 	    }
 	    if (logFile != null) {
 		String logPath = logFile.getCanonicalPath();

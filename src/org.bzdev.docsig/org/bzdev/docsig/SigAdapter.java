@@ -7,9 +7,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
@@ -304,9 +308,9 @@ public class SigAdapter implements ServletAdapter {
     public void doGet(HttpServerRequest req, HttpServerResponse res)
 	throws IOException, ServletAdapter.ServletException
     {
-	if (req.getParameter("document") != null) {
+	if (req.getParameter("sendto") != null) {
 	    // Generally one should use a POST method to create the
-	    // respose document because the response inculdes a timestamp.
+	    // respose document because the response includes a timestamp.
 	    // DOCSERVER allows a GET method as well so a server can
 	    // generate an HTTP redirect so that a user does not have
 	    // to submit a form.
@@ -607,12 +611,18 @@ public class SigAdapter implements ServletAdapter {
 		}
 	    });
 
-    private Reader urlReader(URL url) throws ServletAdapter.ServletException {
+    private Reader urlReader(URL url, boolean pem)
+	throws ServletAdapter.ServletException
+    {
 	try {
 	    URLConnection urlc = url.openConnection();
 	    InputStream is = urlc.getInputStream();
 	    ByteArrayOutputStream boas = new ByteArrayOutputStream(4096);
 	    is.transferTo(boas);
+	    if (pem) {
+		String pemString="\n$(PEM)\n";
+		boas.writeBytes(pemString.getBytes(UTF8));
+	    }
 	    byte[] bytes = boas.toByteArray();
 	    MessageDigest md = createMD();
 	    md.update(bytes);
@@ -625,6 +635,26 @@ public class SigAdapter implements ServletAdapter {
 	    throw new ServletAdapter.ServletException(msg, e);
 	}
     }
+
+    static Set<String> reservedParms = Set
+	.of("name", "email", "id", "transID", "sigserver", "type",
+	    "document", "sendto", "cc", "subject");
+
+    static Set<String> reservedHdrs =
+	Set.of("acceptedBy", "timestamp", "date", "timezone", "ipaddr",
+	       "id", "transID", "email", "server", "sendto", "cc",
+	       "document", "type", "digest",
+	       "emailTemplateURL", "emailTemplateDigest", "publicKeyID",
+	       "signature");
+
+    static Comparator<String> nameComparator = new Comparator<String>() {
+	    public int compare(String s1, String s2) {
+		if (s1 == null) s1 = "";
+		if (s2 == null) s2 = "";
+		return s1.compareToIgnoreCase(s2);
+	    }
+	};
+
 
     @Override
     public void doPost(HttpServerRequest req, HttpServerResponse res)
@@ -655,13 +685,13 @@ public class SigAdapter implements ServletAdapter {
 	    sigserver = sigserver + "/";
 	}
 	String type = req.getParameter("type");
-	if (type == null)
-	    throw new ServletException("parameter 'type' is missing");
 	type = type.strip().replaceAll("\\s","");
 	String document = req.getParameter("document");
-	if (document == null)
-	    throw new ServletException("parameter 'document' missing");
-	document = document.strip().replaceAll("\\s","");
+	if (document != null) {
+	    if (type == null)
+		throw new ServletException("parameter 'type' is missing");
+	    document = document.strip().replaceAll("\\s","");
+	}
 	String sendto = req.getParameter("sendto");
 	if (sendto == null) {
 	    throw new ServletException("parameter 'sendto' is missing");
@@ -684,202 +714,276 @@ public class SigAdapter implements ServletAdapter {
 
 
 	if (name == null || email == null || sigserver == null
-	    || type == null || document == null
 	    || sendto == null || subject == null) {
 	    throw new ServletException("missing post data");
 	}
-	URL url = new URL(document);
-	String host = url.getHost();
-	if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
-	    url = new URL(url.getProtocol(),
-			  DOCSIG_LOCAL_ADDR,
-			  url.getPort(),
-			  url.getFile());
-	}
-	URLConnection urlc = url.openConnection();
-	if (urlc instanceof HttpURLConnection) {
-	    HttpURLConnection hurlc = (HttpURLConnection) urlc;
-	    InputStream is = null;
-	    try {
-		hurlc.connect();
-		is  = hurlc.getInputStream();
-		int rcode = hurlc.getResponseCode();
-		if (rcode != 200) {
-		    OutputStream nos = OutputStream.nullOutputStream();
-		    is.transferTo(nos);
-		    res.sendError(rcode);
+
+	ByteArrayOutputStream baos;
+	String mediaType = null;
+	URL url = (document == null)? null: new URL(document);
+	if (url != null) {
+	    String host = url.getHost();
+	    if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+		url = new URL(url.getProtocol(),
+			      DOCSIG_LOCAL_ADDR,
+			      url.getPort(),
+			      url.getFile());
+	    }
+	    URLConnection urlc = url.openConnection();
+	    if (urlc instanceof HttpURLConnection) {
+		HttpURLConnection hurlc = (HttpURLConnection) urlc;
+		InputStream is = null;
+		try {
+		    hurlc.connect();
+		    is  = hurlc.getInputStream();
+		    int rcode = hurlc.getResponseCode();
+		    if (rcode != 200) {
+			OutputStream nos = OutputStream.nullOutputStream();
+			is.transferTo(nos);
+			res.sendError(rcode);
+			return;
+		    }
+		} catch (IOException eio) {
+		    if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
+			sendSimpleResponse(res, 404,
+					   "could not load " + document
+					   + "\r\n (localhost -> "
+					   + DOCSIG_LOCALHOST + ")"
+					   + "\r\n error [3]: "
+					   + eio.getMessage());
+		    } else {
+			sendSimpleResponse(res, 404,
+					   "could not load " + document
+					   +"\r\n error [3]: "
+					   + eio.getMessage());
+		    }
 		    return;
 		}
-	    } catch (IOException eio) {
-		if (DOCSIG_LOCALHOST != null && host.equals("localhost")) {
-		    sendSimpleResponse(res, 404,
-				      "could not load " + document
-				      + "\r\n (localhost -> "
-				      + DOCSIG_LOCALHOST + ")"
-				      + "\r\n error [3]: " + eio.getMessage());
-		} else {
-		    sendSimpleResponse(res, 404,
-				       "could not load " + document
-				       +"\r\n error [3]: " + eio.getMessage());
+		if (document != null) {
+		    mediaType = hurlc.getContentType();
+		    baos = new ByteArrayOutputStream(8192);
+		    is.transferTo(baos);
+		    byte[] contents = baos.toByteArray();
+		    MessageDigest md = createMD();
+		    md.update(contents);
+		    digest = bytesToHex(md.digest());
+		    Entry entry = new Entry();
+		    entry.url = document;
+		    entry.mediaType = mediaType;
+		    entry.contents = contents;
+		    cache.put(digest, entry);
 		}
-		return;
+	    } else {
+		res.sendError(404);
 	    }
-	    Reader r = (emailTemplateURL == null)?
-		new InputStreamReader(getClass()
-				      .getResourceAsStream("email.tpl"),
-				      UTF8):
-		urlReader(emailTemplateURL);
-	    String udigest = (emailTemplateURL == null)? null:
+	}
+	Reader r = (emailTemplateURL == null)?
+	    new InputStreamReader(getClass()
+				  .getResourceAsStream("email.tpl"),
+				  UTF8):
+	    urlReader(emailTemplateURL, true);
+	String udigest = (emailTemplateURL == null)? null:
 		ucache.get(emailTemplateURL);
-	    String mediaType = hurlc.getContentType();
-	    ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
-	    is.transferTo(baos);
-	    byte[] contents = baos.toByteArray();
-	    MessageDigest md = createMD();
-	    md.update(contents);
-	    digest = bytesToHex(md.digest());
-	    Entry entry = new Entry();
-	    entry.url = document;
-	    entry.mediaType = mediaType;
-	    entry.contents = contents;
-	    cache.put(digest, entry);
-	    StringBuilder sb = new StringBuilder(1024);
-	    sb.append("acceptedBy: "); sb.append(name); sb.append(CRLF);
-	    sb.append("timestamp: "); sb.append(timestamp); sb.append(CRLF);
-	    sb.append("date: "); sb.append(date); sb.append(CRLF);
-	    sb.append("timezone: "); sb.append(timezone); sb.append(CRLF);
-	    sb.append("ipaddr: "); sb.append(ipaddr); sb.append(CRLF);
+	StringBuilder sb = new StringBuilder(1024);
+	sb.append("acceptedBy: "); sb.append(name); sb.append(CRLF);
+	sb.append("timestamp: "); sb.append(timestamp); sb.append(CRLF);
+	sb.append("date: "); sb.append(date); sb.append(CRLF);
+	sb.append("timezone: "); sb.append(timezone); sb.append(CRLF);
+	sb.append("ipaddr: "); sb.append(ipaddr); sb.append(CRLF);
+	if (id != null) {
+	    sb.append("id: "); sb.append(id); sb.append(CRLF);
+	}
+	if (transID != null) {
+	    sb.append("transID: "); sb.append(transID); sb.append(CRLF);
+	}
+	sb.append("email: "); sb.append(email); sb.append(CRLF);
+	sb.append("server: "); sb.append(sigserver); sb.append(CRLF);
+	sb.append("sendto: "); sb.append(sendto); sb.append(CRLF);
+	if (cc != null) {
+	    sb.append("cc: "); sb.append(cc); sb.append(CRLF);
+	}
+	if (document != null) {
+	    sb.append("document: "); sb.append(document);sb.append(CRLF);
+	}
+	sb.append("type: "); sb.append(type); sb.append(CRLF);
+	if (digest != null) {
+	    sb.append("digest: "); sb.append(digest); sb.append(CRLF);
+	}
+	if (emailTemplateURL != null) {
+	    sb.append("emailTemplateURL: ");
+	    sb.append(emailTemplateURL.toString());
+	    sb.append(CRLF);
+	    sb.append("emailTemplateDigest: " + udigest);
+	    sb.append(CRLF);
+	}
+	sb.append("publicKeyID: "); sb.append(pemDigest); sb.append(CRLF);
+	TreeSet<String> nameSet = new TreeSet<>(nameComparator);
+	for (Enumeration<String> names = req.getParameterNames();
+	     names.hasMoreElements();) {
+	    String nm = names.nextElement();
+	    if (reservedParms.contains(nm)) continue;
+	    if (reservedHdrs.contains(nm)) continue;
+	    nameSet.add(nm);
+	    // System.out.println("... adding " +nm + " to nameSet");
+	}
+	for (String key: nameSet) {
+	    sb.append(key + ": " + req.getParameter(key).trim());
+	    sb.append(CRLF);
+	}
+
+	/*
+	  String signing[] = {
+	  name,
+	  timestamp,
+	  date,
+	  timezone,
+	  ipaddr,
+	  ((id == null)? "<null>": id),
+	  ((transID == null)? "<null>": transID),
+	  email,
+	  sigserver,
+	  sendto,
+	  ((cc == null)? "<null>": cc),
+	  document,
+	  type,
+	  digest,
+	  ((emailTemplateURL == null)? "<null>":
+	  emailTemplateURL.toString()),
+	  ((emailTemplateURL == null)? "<null>":
+	  udigest),
+	  pemDigest
+	  };
+	  System.out.println("signed ...");
+	  for (String sstr: signing) {
+	  System.out.println("... " + sstr);
+	  }
+	*/
+	try {
+	    Signature signer = sbuPrivate.getSigner();
+	    signer.update((name+CRLF).getBytes(UTF8));
+	    signer.update((timestamp + CRLF).getBytes(UTF8));
+	    signer.update((date + CRLF).getBytes(UTF8));
+	    signer.update((timezone + CRLF).getBytes(UTF8));
+	    signer.update((ipaddr + CRLF).getBytes(UTF8));
 	    if (id != null) {
-		sb.append("id: "); sb.append(id); sb.append(CRLF);
+		signer.update((id+CRLF).getBytes(UTF8));
 	    }
 	    if (transID != null) {
-		sb.append("transID: "); sb.append(transID); sb.append(CRLF);
+		signer.update((transID+CRLF).getBytes(UTF8));
 	    }
-	    sb.append("email: "); sb.append(email); sb.append(CRLF);
-	    sb.append("server: "); sb.append(sigserver); sb.append(CRLF);
-	    sb.append("sendto: "); sb.append(sendto); sb.append(CRLF);
+	    signer.update((email+CRLF).getBytes(UTF8));
+	    signer.update((sigserver+CRLF).getBytes(UTF8));
+	    signer.update((sendto+CRLF).getBytes(UTF8));
 	    if (cc != null) {
-		sb.append("cc: "); sb.append(cc); sb.append(CRLF);
+		signer.update((cc+CRLF).getBytes(UTF8));
 	    }
-	    sb.append("document: "); sb.append(document);sb.append(CRLF);
-	    sb.append("type: "); sb.append(type); sb.append(CRLF);
-	    sb.append("digest: "); sb.append(digest); sb.append(CRLF);
-	    if (emailTemplateURL != null) {
-		sb.append("emailTemplateURL: ");
-		sb.append(emailTemplateURL.toString());
-		sb.append(CRLF);
-		sb.append("emailTemplateDigest: " + udigest);
-		sb.append(CRLF);
-	    }
-	    sb.append("publicKeyID: "); sb.append(pemDigest); sb.append(CRLF);
-	    try {
-		Signature signer = sbuPrivate.getSigner();
-		signer.update((name+CRLF).getBytes(UTF8));
-		signer.update((timestamp + CRLF).getBytes(UTF8));
-		signer.update((date + CRLF).getBytes(UTF8));
-		signer.update((timezone + CRLF).getBytes(UTF8));
-		signer.update((ipaddr + CRLF).getBytes(UTF8));
-		if (id != null) {
-		    signer.update((id+CRLF).getBytes(UTF8));
-		}
-		if (transID != null) {
-		    signer.update((transID+CRLF).getBytes(UTF8));
-		}
-		signer.update((email+CRLF).getBytes(UTF8));
-		signer.update((sigserver+CRLF).getBytes(UTF8));
-		signer.update((sendto+CRLF).getBytes(UTF8));
-		if (cc != null) {
-		    signer.update((cc+CRLF).getBytes(UTF8));
-		}
+	    if (document != null) {
 		signer.update((document+CRLF).getBytes(UTF8));
-		signer.update((type + CRLF).getBytes(UTF8));
+	    }
+	    signer.update((type + CRLF).getBytes(UTF8));
+	    if (digest != null) {
 		signer.update((digest+CRLF).getBytes(UTF8));
-		if (emailTemplateURL != null) {
-		    signer.update((emailTemplateURL.toString() + CRLF)
-				  .getBytes(UTF8));
-		    signer.update((udigest + CRLF).getBytes(UTF8));
-		}
-		signer.update((pemDigest+CRLF).getBytes(UTF8));
-		sb.append("signature: ");
-		sb.append(bytesToHex(signer.sign()) + CRLF);
-	    } catch (Exception e) {
-		throw new ServletAdapter.ServletException("signer error", e);
 	    }
-	    sb.append(CRLF);
-	    sb.append(publicKey);
-	    baos = new ByteArrayOutputStream(2048);
-	    GZIPOutputStream os = new GZIPOutputStream(baos);
-	    os.write(sb.toString().getBytes(UTF8));
-	    os.finish();
-	    os.close();
-	    sb = new StringBuilder(2048);
-	    PemEncoder pemEncoder = new PemEncoder(sb);
-	    pemEncoder.encode("DOCUMENT SIGNATURE DATA", baos.toByteArray());
-	    StringBuilder body = new StringBuilder(1024);
-	    TemplateProcessor.KeyMap keymap = new TemplateProcessor.KeyMap();
-	    keymap.put("name", name);
-	    keymap.put("type", type);
-	    keymap.put("date", date);
-	    keymap.put("timezone", timezone);
+	    if (emailTemplateURL != null) {
+		signer.update((emailTemplateURL.toString() + CRLF)
+			      .getBytes(UTF8));
+		signer.update((udigest + CRLF).getBytes(UTF8));
+	    }
+	    signer.update((pemDigest+CRLF).getBytes(UTF8));
+	    for (String key: nameSet) {
+		signer.update((req.getParameter(key).trim() + CRLF)
+			      .getBytes(UTF8));
+	    }
+	    sb.append("signature: ");
+	    sb.append(bytesToHex(signer.sign()) + CRLF);
+	} catch (Exception e) {
+	    throw new ServletAdapter.ServletException("signer error", e);
+	}
+	sb.append(CRLF);
+	sb.append(publicKey);
+	baos = new ByteArrayOutputStream(2048);
+	GZIPOutputStream os = new GZIPOutputStream(baos);
+	os.write(sb.toString().getBytes(UTF8));
+	os.finish();
+	os.close();
+	sb = new StringBuilder(2048);
+	PemEncoder pemEncoder = new PemEncoder(sb);
+	pemEncoder.encode("DOCUMENT SIGNATURE DATA", baos.toByteArray());
+	StringBuilder body = new StringBuilder(1024);
+	TemplateProcessor.KeyMap keymap = new TemplateProcessor.KeyMap();
+	keymap.put("name", name);
+	keymap.put("type", type);
+	keymap.put("date", date);
+	keymap.put("timezone", timezone);
+	if (document != null) {
 	    keymap.put("document", document);
+	}
+	if (digest != null) {
 	    keymap.put("digest", digest);
-	    keymap.put("sigserver", sigserver);
-	    keymap.put("PEM", sb.toString());
-	    TemplateProcessor tp = new TemplateProcessor(keymap);
-	    AppendableWriter aw = new AppendableWriter(body);
-	    tp.processTemplate(r, aw);
-	    aw.flush(); r.close(); aw.close();
-	    String bodystr = body.toString();
-	    String encodedBody = URLEncoder.encode(bodystr, UTF8);
-	    HashMap<String,String> queryMap = new HashMap<>();
-	    queryMap.put("subject", subject);
-	    if (cc != null) {
-		queryMap.put("cc", cc);
-	    }
-	    queryMap.put("body", bodystr);
-	    String query = WebEncoder.formEncode(queryMap, false, UTF8)
-		.replaceAll("[+]", "%20");
+	}
+	keymap.put("sigserver", sigserver);
+	keymap.put("PEM", sb.toString());
+	for (String key: nameSet) {
+	    keymap.put(key.toLowerCase(), req.getParameter(key).trim());
+	}
+	TemplateProcessor tp = new TemplateProcessor(keymap);
+	AppendableWriter aw = new AppendableWriter(body);
+	tp.processTemplate(r, aw);
+	aw.flush(); r.close(); aw.close();
+	String bodystr = body.toString();
+	String encodedBody = URLEncoder.encode(bodystr, UTF8);
+	HashMap<String,String> queryMap = new HashMap<>();
+	queryMap.put("subject", subject);
+	if (cc != null) {
+	    queryMap.put("cc", cc);
+	}
+	queryMap.put("body", bodystr);
+	String query = WebEncoder.formEncode(queryMap, false, UTF8)
+	    .replaceAll("[+]", "%20");
 
-	    keymap = new TemplateProcessor.KeyMap();
-	    keymap.put("color", color);
-	    keymap.put("bgcolor", bgcolor);
-	    keymap.put("linkColor", linkColor);
-	    keymap.put("visitedColor", visitedColor);
-	    keymap.put("buttonFGColor", buttonFGColor);
-	    keymap.put("buttonBGColor", buttonBGColor);
-	    keymap.put("bquoteBGColor", bquoteBGColor);
-	    keymap.put("name", name);
-	    keymap.put("email", email);
-	    keymap.put("sigserver", sigserver);
-	    keymap.put("type", type);
+	keymap = new TemplateProcessor.KeyMap();
+	keymap.put("color", color);
+	keymap.put("bgcolor", bgcolor);
+	keymap.put("linkColor", linkColor);
+	keymap.put("visitedColor", visitedColor);
+	keymap.put("buttonFGColor", buttonFGColor);
+	keymap.put("buttonBGColor", buttonBGColor);
+	keymap.put("bquoteBGColor", bquoteBGColor);
+	keymap.put("name", name);
+	keymap.put("email", email);
+	keymap.put("sigserver", sigserver);
+	keymap.put("type", type);
+	if (mediaType != null) {
 	    keymap.put("mimetype", mediaType);
+	}
+	if (document != null) {
 	    keymap.put("document", document);
 	    keymap.put("encDocument", URLEncoder.encode(document, UTF8));
-	    keymap.put("sendto", sendto);
-	    keymap.put("query", query);
-	    // keymap.put("subject", subject);
-	    keymap.put("digest", digest);
-	    keymap.put("subject", subject);
-	    keymap.put("body", bodystr);
-	    //  keymap.put("encodedBody", encodedBody);
-	    tp = new TemplateProcessor(keymap);
-	    baos = new ByteArrayOutputStream(2048);
-	    Writer w = new OutputStreamWriter(baos, UTF8);
-					      
-	    r = new InputStreamReader(getClass()
-				      .getResourceAsStream("signature.tpl"),
-				      UTF8);
-	    tp.processTemplate(r, w);
-	    w.flush();
-	    byte[] results = baos.toByteArray();
-	    res.setHeader("content-type", "text/html");
-	    res.sendResponseHeaders(200, results.length);
-	    OutputStream os2 = res.getOutputStream();
-	    os2.write(results);
-	    os2.flush();
-	    os2.close();
-	} else {
-	    res.sendError(404);
 	}
+	keymap.put("sendto", sendto);
+	keymap.put("query", query);
+	// keymap.put("subject", subject);
+	if (digest != null) {
+	    keymap.put("digest", digest);
+	}
+	keymap.put("subject", subject);
+	keymap.put("body", bodystr);
+	//  keymap.put("encodedBody", encodedBody);
+	tp = new TemplateProcessor(keymap);
+	baos = new ByteArrayOutputStream(2048);
+	Writer w = new OutputStreamWriter(baos, UTF8);
+
+	r = new InputStreamReader(getClass()
+				  .getResourceAsStream("signature.tpl"),
+				  UTF8);
+	tp.processTemplate(r, w);
+	w.flush();
+	byte[] results = baos.toByteArray();
+	res.setHeader("content-type", "text/html");
+	res.sendResponseHeaders(200, results.length);
+	OutputStream os2 = res.getOutputStream();
+	os2.write(results);
+	os2.flush();
+	os2.close();
     }
 }

@@ -16,20 +16,21 @@
   <title>Signature Request</title>
   </head>
   <body>
-    <P> This page was produced by $(sigserver) --- the following
-      link will display the $(type) to be signed:
+    <P> This page was produced by $(sigserver) $(+document:endDoc)--- the
+       following link will display the $(type) to be signed:
       <BLOCKQUOTE>
 <A HREF="$(document)">$(document)</A>
       </BLOCKQUOTE>
 	and its SHA-256 message digest, is
       <BLOCKQUOTE>
 <A HREF="$(sigserver)?url=$(encDocument)&digest=$(digest)">$(digest)</A>
-      </BLOCKQUOTE>
+      </BLOCKQUOTE>$(endDoc)
     <P>
-      To sign the $(type), click the following button. This should
-      open an email window with everything filled out.  If possible,
-      please send it with a GPG or PGP signature. The submission will
-      not be valid if the text of the email is modified.
+      To $(+document:endDoc)sign and $(endDoc)submit the $(type), click the
+      following button. This should open an email window with everything
+      filled out.$(+document:endDoc) If possible, please send it with a
+      GPG or PGP signature.$(endDoc)
+      The submission will not be valid if the text of the email is modified.
     <P><br>
     <A href="mailto:$(sendto)?$(query)"
        style="background-color:$(buttonBGColor);color:$(buttonFGColor); padding: 14px 25px; text-align: center; text-decoration: none;">Click To Send</A>
@@ -38,7 +39,7 @@
       to <SPAN STYLE="background-color: $(bquoteBGColor)">$(sendto)</SPAN>
       with a subject line
       "<SPAN STYLE="background-color: $(bquoteBGColor)">$(subject)</SPAN>"
-      and a message  containig the following text:
+      and a message containing the following text:
     <P>
       <PRE>
 +++++++++++++++++++++++

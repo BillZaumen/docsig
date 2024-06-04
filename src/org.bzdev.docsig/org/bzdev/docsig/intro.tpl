@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style type="text/css">
+<HTML lang="en">
+  <HEAD>
+  <META charset="UTF-8">
+  <META name="viewport" content="width=device-width, initial-scale=1.0">
+  <STYLE type="text/css">
     BODY {
         background-color: $(bgcolor);
         color: $(color);
@@ -18,8 +18,8 @@
     li + li { margin-top: 10px;}
   </style>
   <TITLE>DOCSIG Documentation</TITLE>
-  </head>
-  <body>
+  </HEAD>
+  <BODY>
   <H1>DOCSIG Documentation</H1>
     <P>
       Links:
@@ -27,10 +27,11 @@
 	<LI><A HREF="#quickstart">Quick Start</A>.
 	<LI><A HREF="#intro">Introduction</A>.
 	<LI><A HREF="#forms">Forms</A>.
-	<LI> <A HREF="#generated">Generated Forms</A>.
+	<LI><A HREF="#generated">Generated Forms</A>.
 	<LI><A HREF="#queries">Query strings<A>.
 	<LI><A HREF="#pem">PEM Encodings</A>.
 	<LI><A HREF="#config">Configuration</A>.
+	<LI><A HREF="#templates">Templates</A>.
 	<LI><A HREF="#startup">Startup</A>.
 	<LI><A HREF="#validation">Validation and Table Generation</A>.<br>
 	  The following links can be used to install JAR files and
@@ -184,24 +185,26 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
 
       <H1><A ID="intro"> Introduction</A></H1>
     <P>
-      DOCSIG is a server that supports the use of digital
-      signatures for simple documents that require a single
-      signature. This server will respond to a request by
-      generating a web page with a link to the document that
+      DOCSIG is a server that supports electronic signatures for
+      simple documents that require a single signature, and for
+      providing data associated with a document or simply a
+      request. Docsig servers will respond to an HTML form submission
+      by generating a web page with a link to a document (if any) that
       is to be signed, together with the document&apos;s SHA-256
-      message digest. This web page will also have a 'mailto'
-      link that will set up an email message that can be sent
-      to submit the signature. This email message does not contain
-      the document being signed, but does contain a link to the
-      document and the document's SHA-256 message digest, which
-      is used as a document ID.  There are also some Java classes
-      that facilitate processing email so that each individual
-      email does not have to be handled manually.  The DOCSIG
-      server provides links to the relevant JAR files, including
-      ones needed to use a scripting language. Besides allowing
-      emails to be processed in bulk, the Java classes check
-      that email messages have not been modified: each email
-      contains some digitally signed data that is
+      message digest. This web page will also have a 'mailto' link
+      that will set up an email message that can be sent to submit the
+      signature. This email message does not contain the document
+      being signed, but does contain a link to the document, if
+      provided, and that document's SHA-256 message digest.  There are
+      also some Java classes that facilitate processing emails so that
+      each individual email does not have to be handled manually. The
+      server can be configured to process these emails by generating a
+      CSV (Comma Separated Values) file that can be loaded into
+      spreadsheets or databases.  The DOCSIG server provides links to
+      the relevant JAR files, including ones needed to use a scripting
+      language. Besides allowing emails to be processed in bulk, the
+      Java classes check that email messages have not been modified:
+      each email contains some digitally signed data that is
       <A HREF="https://www.c-sharpcorner.com/article/what-is-a-pem-file/">PEM</A>
       encoded and that is used in the verification procedure.
     <P>
@@ -219,13 +222,16 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
       for DOCSIG is a small group that is required by other entities
       to have members periodically sign waivers, which end up
       being stored somewhere and are never looked at again unless
-      something goes wrong.
+      something goes wrong. Another is to implement a sign up sheet of
+      some sort where user's may have to provide various parameters.
 
       <H1><A ID="forms">HTML forms</A></H1>
     <P>
       To use DOCSIG, a web site has to return a
       an HTML file, or alternatively an HTML email attachment,
-      containing an HTML form as shown below:
+      containing an HTML form. DOCSIG can also be configured
+      to generate a suitable HTML file containing this form. For
+      example:
       <BLOCKQUOTE><PRE>
 
  &lt;form action="<A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>/docsig/" method="<A HREF="#METHOD">METHOD</A>"&gt;
@@ -277,6 +283,8 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
       <LI><A ID="emsl">EMAIL_SUBJECT_LINE</A> is the subject line for
 	an email providing the signature.
     </UL>
+    Additional input elements may appear in the form so that users can
+    provide additional parameters.
     <P>
       When a user clicks the 'Continue' button on the form shown above,
       the DOCSIG server will respond by providing a web page that contains
@@ -316,8 +324,14 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
 	  "rgb(255,255,255)".
 	<LI><B>borderColor</B>: the CSS color of the border around an IFRAME
 	  showing the document. the default value is "steelblue".
+	<LI><B>bquoteBGColor</B>: the background color for block-quoted text.
+	  The default is "rgb(32,32,32)".
 	<LI><B>type</B>:  the document type. The default value is "document".
+	  Examples of values include "waiver", "contract", "agreement", and
+	  "request".
 	<LI><B>document</B>: The document URL. This must be an absolute URL.
+	  If missing, one will almost certainly need an
+	  <B>additionalFormElements</B> parameter described below.
 	<LI><B>sendto</B>: the email recipient.
 	<LI><B>cc</B>:  An optional email address to which to send a copy.
 	<LI><B>subject</B>: the subject line to use in an email message. The
@@ -329,7 +343,8 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
 	  used to generate a signature-request page. The
 	  <A HREF="https://raw.githubusercontent.com/BillZaumen/docsig/main/src/org.bzdev.docsig/org/bzdev/docsig/request.tpl">default template</A>
 	  can be copied and then modified to customize the request.
-	<LI><B>fillText</B>. If the value is the string <B>true</B>, plain
+	<LI><B>fillText</B>: how plain text documents are displayed.
+	  If the value is the string <B>true</B>, plain
 	  text will be filled and formatted to fit into an HTML IFRAME
 	  with appropriate indentation.  Otherwise (the default) the text
 	  is displayed as is.  For filled text,
@@ -350,11 +365,19 @@ docker run --rm -v VOLUME:/data -w /data busybox CMD
 	  keep the full line width visible.  The content type provided
 	  in HTTP headers for a plain text document must be
 	  text/plain.
+	<LI><A ID="afe"><B>additionalFormElements</B></A>: text
+	  containing HTML 5 <B>FIELDSET</B>, <B>LABEL</B>, <B>P</B>,
+	  <B>LEGEND</B>, and <B>INPUT</B> elements that will be
+	  included in the HTML form to be submitted.  The <B>NAME</B>
+	  attribute for each <B>INPUT</B> element should be a Java
+	  identifier. These names must be unique after being converted to
+	  lower case. They must not match any name already in use for
+	  an <A HREF="#emailTemplate">email template</A>.
       </UL>
       If a template is provided, the keys the template processor will
       provide include the parameters listed above, except for
-      <B>textFill</B> and <B>template</B>, There are also two
-      additional keys for the template:
+      <B>textFill</B>, <B>template</B>, and <B>additionalFormElements</B>.
+      There are also two additional keys for the template:
       <UL>
 	<LI><B>digest</B>. This is the SHA-256 message digest of the
 	  document.
@@ -503,7 +526,7 @@ https://example.com/request/?name=John+Jones&email=jjones@example.com
       header is the text in the rest of the line, which is terminated
       by a carriage return followed by a line feed. The headers are
       (in order)
-      <0L>
+      <OL>
 	<LI><B>acceptedBy</B>. This is the user name entered in the
 	  form above.
 	<LI><B>timestamp</B>. This is time at which the signature was
@@ -527,6 +550,8 @@ https://example.com/request/?name=John+Jones&email=jjones@example.com
 	  <A HREF="#HTTP">HTTP</A>://<A HREF="#DS_SERVER">DOCSIG_SERVER</A>.
 	<LI><B>sendto</B>. This is the value of
 	  <A HREF="#emr">EMAIL_RECIPIENT</A>.
+	<LI><B>cc</B>. This optional header is the email address of an
+	  additional recipient.
 	<LI><B>document</B>. This is the URL for the document being
 	  signed.
 	<LI><B>type</B>. This is the type of the document: for
@@ -534,23 +559,32 @@ https://example.com/request/?name=John+Jones&email=jjones@example.com
 	<LI><B>digest</B>. This is the SHA-256 message digest of the
 	  document being signed (represented as a string of
 	  hexadecimal digits using lower-case letters).
+	<LI><B>emailTemplateURL</B>. An optional header providing the
+	  URL of a template file used to generate emails. This must be
+	  an absolute URL.
+	<LI><B>emailTemplateDigest</B>. This header is present if an only
+	  if the <B>emailTemplateURL</B> header is present. It contains
+	  the SHA-256 message digest of the email template.
 	<LI><B>publicKeyID</B>. This is the SHA-256 message digest of
 	  the PEM-encoded public key file (represented as a string of
 	  hexadecimal digits using lower-case letters).
+	<LI><I>input names</I>.For each input element in addition to
+	  the standard ones in the HTML form that was submitted, and
+	  sorted in case-insensitive alphanumeric order, there will be
+	  a header whose name matches the input element's name and whose
+	  value is the value provided for that element.
 	<LI><B>signature</B>. This is the digital signature of the
 	  values of the headers listed above, in the order listed,
 	  with each terminated by a carriage return followed by a line
 	  feed, with this signature represented as a string of
 	  hexadecimal digits using lower-case letters. When the
 	  signature is computed all the fields signed will use a UTF-8
-	  character encoding.  </0L> The PEM encoded public key has an
-	  initial line with a header named "signature-algorithm"
-	  specifying a signature algorithm.  The header&apos;s name is
-	  also followed by a colon and a space, in turn followed by
-	  the standard name for a signature algorithm.  Typically this
-	  will be SHA256withECDSA. This is again followed by a
-	  carriage-return and a line feed. The final component is the
-	  PEM encoded public key itself.
+	  character encoding.
+	<LI><B>signature-algorithm</B>. This is the signature algorithm
+	  used to create the signature. Typically this will be
+	  SHA256withECDSA.
+      </OL>
+      The final component is the PEM encoded public key itself.
     <P>
       Showing that the signature is valid requires the following steps.
       <UL>
@@ -676,7 +710,7 @@ config:
 	<LI><B>bgcolor</B>. This is the color used for the background.  If
 	  missing,  a default, <B>rgb(10,10,25)</B>, will be used.
 	<LI><B>linkColor</B>. This is the color used for links.  If
-	  missing,  a default, <B>rgb(65,225,128</B>, will be used.
+	  missing,  a default, <B>rgb(65,225,128)</B>, will be used.
 	<LI><B>visitedColor</B>. This is the color used for visited links.  If
 	  missing,  a default, <B>rgb(65,165,128)</B>, will be used.
 	<LI><B>buttonFGColor</B>. This the color to use for the text in
@@ -821,10 +855,109 @@ config:
 	  errors resulting from GET or POST methods will generate a
 	  stack trace.  The default is <B>false</B>.
 	<LI><B>timezone</B>. The value is a
-	  <A HREF="./timezones.txt">time-zone ID</A>. IF missing, the
+	  <A HREF="./timezones.txt">time-zone ID</A>. If missing, the
 	  system default will be used.  This parameter determines the
 	  time zone used when a date is shown in the body of an email
 	  message.
+	<LI><B>emailTemplateURL</B>. This is an optional parameter.
+	  When present, it is the URL that provides a template file
+	  suitable for creating emails.
+      </UL>
+
+      <H1><A ID="templates">Templates</A></H1>
+    <P>DOCSIG uses a
+      <A HREF="/bzdev-api/org.bzdev.base/org/bzdev/util/TemplateProcessor.html">template processor</A>
+      to construct emails and requests. These are configured with
+      keyword-value pairs described in the sections
+      <UL>
+	<LI><A HREF="#emailTemplates">Email templates</A>.
+	<LI><A HREF="#requestTemplates">Request templates</A>.
+      </UL>
+      Template processing is performed as follows:
+      <UL>
+	<LI> <B>$$(<I>IDENTIFIER</I>)</B> is replaced with a value
+	  associated with <I>IDENTIFIER</I>.
+	<LI> <B>$$(+<I>IDENTIFIER1</I>:<I>IDENTIFIER2</I>)</B> will
+	  result in the text ending with, but not including,
+	  <B>$$(<I>IDENTIFIER2</I>)</B> being processed if there is a
+	  value associated with <I>IDENTIFIER1</I>.
+	<LI> <B>$$(-<I>IDENTIFIER1</I>:<I>IDENTIFIER2</I>)</B> will
+	  result in the text ending with, but not including,
+	  <B>$$(<I>IDENTIFIER2</I>)</B> being processed if no
+	  value associated with <I>IDENTIFIER1</I> exists.
+	<LI> <B>$$(<I>IDENTIFIER1</I>:$<I>IDENTIFIER2</I>)</B> is an
+	  iteration construct described in the template processor
+	  API documentation, and is not used by DOCSIG
+	<LI> <B>$$$$</B>. is replaced with <B>$$</B>.
+	<LI> <B>$$(!<I>TEXT</I>)</B> is a comment. <I>TEXT</I> may not
+	  contain a closing parenthesis.
+      </UL>
+
+      <H2><A ID="emailTemplates">Email templates</A></H2>
+    <P>
+      The default email template will usually be adequate for
+      when <A HREF="#afe">additional form elements</A> are not
+      used. When there are additional form elements, the email
+      should typically display the values of those. The
+      template keys will be the name of the corresponding HTML
+      input element, converted to lower case.  In addition to
+      these, an email template can use the following keys:
+      <UL>
+	<LI><B>name3</B>. The name of the email sender.
+	<LI><B>type</B>. The type of document or request.
+	<LI><B>date</B>. The date of submissions.
+	<LI><B>timezone</B>. The timezone used for the date.
+	<LI><B>document</B>. The document (if any) being signed.
+	<LI><B>digest</B>. The SHA-256 digest of the document
+	  represented as a series of hexadecimal digits.
+	<LI><B>sigserver</B>. The URL of the server generating the
+	  email.
+	<LI><B>PEM</B>. While defined, this key should not be used
+	  explicitly: it will be automatically added to the end of
+	  the email template.
+      </UL>
+
+      <H2><A ID="requestTemplates">Request templates</A></H2>
+
+      The default request template should be adequate for most
+      purposes. If one wants to customize it (for example, to add
+      an image or logo), a template should be configured.  In this
+      case, the keys are
+      <UL>
+	<LI><B>bgcolor</B>. The default background color.
+	<LI><B>color</B>. The default color for text.
+	<LI><B>linkColor</B>. The color for unvisited links.
+	<LI><B>visitedColor</B>. The color for visited links.
+	<LI><B>inputBG</B>. The background color for input elements.
+	<LI><B>inputColor</B>. The text color for input elements.
+	<LI><B>borderColor</B>. The border color (e.g., to surround
+	  an IFRAME).
+	<LI><B>bquoteBGColor</B>. The background color for block-quoted
+	  text.
+	<LI><B>frameFraction</B>. The fraction of an HTML frame that an
+	  IFRAME should consume (there should be at most one IFRAME in
+	  a request).
+	<LI><B>type</B>. The type of a document or request (e.g., "waiver",
+	  "document", "request", "order", "suggestion").
+	<LI><B>document</B>. The URL of a document to sign.
+	<LI><B>digest</B>. The SHA-256 digest of the document, represented
+	  as a series of hexadecimal digits.
+	<LI><B>documentURL</B>. The URL of the document to display in an
+	  IFRAME. Normally this is the same as the value of <B>document</B>,
+	  but for plain text documents, a URL with a <B>data</B> schema
+	  will be used instead.
+	<LI><B>sendto</B>. The address to which email is to be sent.
+	<LI><B>cc</B>. An optional additional address to which email should
+	  be sent.
+	<LI><B>subject</B>. The subject of an email.
+	<LI><B>sigserver</B>. The URL for the signature server. For
+	  example, <B>https://example.com/docsig/</B>.
+	<LI><B>email</B>. The mail address of the sender.
+	<LI><B>id</B>. An optional ID for the sender.
+	<LI><B>transid</B>. An optional transaction ID.
+	<LI><B>additionalFormElements</B>. An optional series of HTML
+	  elements to extend the form as described
+	  <A HREF="#afe">above</A>.
       </UL>
 
       <H1><A ID="startup">Starting the DOCSIG server</A></H1>
@@ -1465,6 +1598,19 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	  <LI><STRONG>publicKeyDir</STRONG>. The directory containing public
 	    the keys that were generated. This should be the same for
 	    all signature adapters.
+	  <LI><B>emailTemplateURL</B>. This is an optional parameter.
+	    When present, it is the URL that provides a template file
+	    suitable for creating emails.  If the parameter
+	    <A HREF="#afe">additionalFormElements</A> is set, the
+	    <B>emailTemplateURL</B> option can provide a template that
+	    allows the values of the additional elements to be displayed
+	    in an email.
+	  <LI><B>nthreads</B>. This value should be at least the number
+	    of threads available. It is used by an instance of
+	    <B>SigAdapter</B> to set a cache size.
+	  <LI><B>numberOfDocuments</B>. This value should be the number
+	    of distinct documents that an instance of <B>SigAdapter</B>
+	    will handle simultaneously.  It is used to set a cache size.
 	</UL>
       <P>
 	The parameters sent in an HTTP POST request for a SigAdapter
@@ -1493,7 +1639,7 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
 	made <A HREF="#tableCurl">programmatically</A>, which is useful
 	for scripting.
   </body>
-</html>
+</HTML>
 
 <!--  LocalWords:  bgcolor linkColor visitedColor BLOCKQUOTE li px br
  -->
@@ -1559,5 +1705,11 @@ unzip <A HREF="#JARFILE">JARFILE</A> api.zip
  -->
 <!--  LocalWords:  stacktrace RequestAdapter SigAdapter logFile
  -->
-<!--  LocalWords:  publicKeyDir TableAdapter checkboxes
+<!--  LocalWords:  publicKeyDir TableAdapter checkboxes FIELDSET
+ -->
+<!--  LocalWords:  additionalFormElements emailTemplateURL unvisited
+ -->
+<!--  LocalWords:  emailTemplateDigest inputBG inputColor
+ -->
+<!--  LocalWords:  frameFraction numberOfDocuments
  -->

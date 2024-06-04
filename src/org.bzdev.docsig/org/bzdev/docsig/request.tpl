@@ -21,7 +21,8 @@
       function doResize() {
           var height = window.innerHeight;
           if (height < 300) height = 300;
-          var contentHeight = height / 2;
+          var contentHeight = height * $(frameFraction);
+	  if (contentHeight < 100) contentHeight = 100;
           var frame = document.getElementById("frame");
           frame.height = contentHeight;
       }
@@ -31,7 +32,8 @@
   </head>
   <body onload="doResize()">
     <H1>Signature Request</H1>
-    <P> To sign the following <A HREF="$(document)">$(type)</A>
+    <P> $(+document:endDoc)To sign the following
+      <A HREF="$(document)">$(type)</A>
       (you may have to scroll the $(type) to see all of it)
     <P>
       <IFRAME ID="frame" SRC="$(documentURL)" scrolling="auto"
@@ -42,26 +44,29 @@
     <P>
       (SHA-256: $(digest))
     <P>
-      please fill in or check the following information and click on
-      the "Continue" button if everything is OK.  You will get a link
-      to the $(type) with a digitally generated signature that you
-      can submit.
+      please$(endDoc)$(-document:endDoc)Please$(endDoc) fill in or check
+      the following information and click on the "Continue" button if
+      everything is OK.  You will get $(+document:endDoc)a link to the
+      $(type) with $(endDoc)a digitally generated
+      $(+document:endDoc)signature or $(endDoc)request that you can submit.
     <P>
       <form action="$(sigserver)" method="post">
-	Name: $(+name:endName)$(name)
+	<fieldset>
+	<P><LABLE>Name: $(+name:endName)$(name)
 	<input name="name" type="hidden" value="$(name)">$(endName)
 	$(-name:endName)
-	<input name="name" type="text" placeholder="Your Name" width="48">
-	$(endName)<br><br>
-	Email: $(+email:endEmail)$(email)
+	<input name="name" type="text" placeholder="Your Name" width="48"
+	       required>
+	$(endName)</LABEL>
+	<P><LABEL>Email: $(+email:endEmail)$(email)
 	<input name="email" type="hidden" value="$(email)">$(endEmail)
 	$(-email:endEmail)
-	<input name="email" type = "text" placeholder="Your Email Address"
-	       width="48">$(endEmail)<br><br>
+	<input name="email" type="email" placeholder="Your Email Address"
+	       width="48" required>$(endEmail)</LABEL>
 	$(+id:endID)
-	ID: $(id)<br><br>
-	<input name="id" type="hidden" value="$(id)" width="48">$(endID)
-	$(+transid:endTransid)
+	<P><LABEL>ID: $(id)
+	  <input name="id" type="hidden" value="$(id)" width="48">$(endID)
+	</LABEL>$(+transid:endTransid)
 	<input name="transID" type="hidden" value="$(transid)" width="48">
 	$(endTransid)
 	<input name="sigserver" type="hidden"
@@ -74,8 +79,10 @@
 	$(+cc:endCC)
 	   <input name="cc" type ="hidden" value="$(cc)"> $(endCC)
 	<input name="subject" type="hidden" value="$(subject)">
-	<input type="submit" value="Continue"
+	$(additionalFormElements)
+	<br><br><input type="submit" value="Continue"
 	       style="font-size: 150%">
+	</fieldset>
       </form>
     <P>
       If you are using an extension such as NoScript, you may have to

@@ -12,10 +12,13 @@ import java.security.spec.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.*;
 
 import org.bzdev.io.AppendableWriter;
@@ -111,6 +114,15 @@ public class DocsigVerifier {
     }
 
 
+    static Comparator<String> nameComparator = new Comparator<String>() {
+	    public int compare(String s1, String s2) {
+		if (s1 == null) s1 = "";
+		if (s2 == null) s2 = "";
+		return s1.compareToIgnoreCase(s2);
+	    }
+	};
+
+
     static private MessageDigest createMD() {
 	try {
 	    return MessageDigest.getInstance("SHA-256");
@@ -132,14 +144,21 @@ public class DocsigVerifier {
 	pmap.put("EC", "SunEC");
     }
 
+
     // This must be in the order in which a signature was generated.
+    // The keys "Signature" and Signature-algorithm are not part of
+    // the signature being verified.
+    // The names are header names, and by convention have their
+    // first letter capitalized, but with a case-insensitive match.
     static private String[] headerKeys = {
-	"acceptedBy", "timestamp", "date", "timezone", "ipaddr",
-	"id", "transID", "email", "server", "sendto", "cc",
-	"document", "type", "digest",
-	"emailTemplateURL", "emailTemplateDigest",
-	"publicKeyID"
+	"Acceptedby", "Timestamp", "Date", "Timezone", "Ipaddr",
+	"Id", "Transid", "Email", "Server", "Sendto", "Cc",
+	"Document", "Type", "Digest",
+	"Emailtemplateurl", "Emailtemplatedigest",
+	"Publickeyid", "Signature", "Signature-algorithm"
     };
+
+    static private Set<String> reservedHdrs = Set.of(headerKeys);
 
     /**
      * Class providing results of parsing/verifying DOCSIG emails.
@@ -151,6 +170,7 @@ public class DocsigVerifier {
 	String messageID;
 	boolean status;
 	String reasons;
+	Set<String> names;
 
 	/**
 	 * Get DOCSIG headers.
@@ -265,8 +285,15 @@ public class DocsigVerifier {
 	 */
 	public String getReasons() {return reasons;}
 
+	/**
+	 * Get the names for headers providing extra fields for a request.
+	 * @return a set of names
+	 */
+	public Set<String> getNames() {return names;}
+
 	Result(HeaderOps headers, String emailName, String emailAddr,
-	       String messageID, boolean status, String reasons)
+	       String messageID, boolean status, String reasons,
+	       Set<String> names)
 	{
 	    this.headers = headers;
 	    this.emailName = emailName;
@@ -274,6 +301,7 @@ public class DocsigVerifier {
 	    this.messageID = messageID;
 	    this.status = status;
 	    this.reasons = reasons;
+	    this.names = names;
 	}
     }
 
@@ -410,16 +438,35 @@ public class DocsigVerifier {
 	    addReason(rsb,"ServerMismatch");
 	}
 					   
+	TreeSet<String> names = new TreeSet<>(nameComparator);
 	try {
 	    SecureBasicUtilities sbutils =
 		new SecureBasicUtilities(firstDecoded);
 	    Signature verifier = sbutils.getVerifier();
+	    // System.out.println("verifying...");
 	    for (String name: headerKeys) {
+		if (name.equals("Signature")) continue;
+		if (name.equals("Signature-algorithm")) continue;
 		String value = headers.getFirst(name);
 		if (value != null) {
+		    // System.out.println("... " + value);
 		    verifier.update((value + CRLF).getBytes(UTF8));
 		}
 	    }
+	    for (String nm: headers.keySet()) {
+		if (reservedHdrs.contains(nm)) continue;
+		// header lookup is not case sensitive but when we use
+		// the key in a template keymap, we want each to be
+		// lower-case only.
+		nm = nm.toLowerCase();
+		names.add(nm);
+		// System.out.println("... added name " + nm);
+	    }
+	    for (String name: names) {
+		String value = headers.getFirst(name);
+		verifier.update((value + CRLF).getBytes(UTF8));
+	    }
+
 	    String signatureStr = headers.getFirst("signature");
 	    if (signatureStr != null) {
 		byte[] signature = hexToBytes(signatureStr);
@@ -451,7 +498,7 @@ public class DocsigVerifier {
 	    validIDs.put(pd, theServer);
 	}
 	return new Result(headers, emailName, emailAddr, messageID,
-			  status, rsb.toString());
+			  status, rsb.toString(), names);
     }
 
     private static String pqEncode(String s) {
@@ -507,6 +554,14 @@ public class DocsigVerifier {
 
     private static int MAX_ENTRIES = 1;
 
+    /**
+     * Indicate the number of entries that are needed for
+     * the URL cache mapping URLs for templates to their hash codes.
+     * <P>
+     * This may be called multiple times. The largest value will determine
+     * the size of a cache.
+     * @param max the number of entries needed
+     */
     public static void needMAX_ENTRIES(int max) {
 	if (max > MAX_ENTRIES) {
 	    MAX_ENTRIES = max;
@@ -520,11 +575,15 @@ public class DocsigVerifier {
 		}
 	    });
 
-    private static Reader urlReader(URL url) throws IOException {
+    private static Reader urlReader(URL url, boolean pem) throws IOException {
 	URLConnection urlc = url.openConnection();
 	InputStream is = urlc.getInputStream();
 	ByteArrayOutputStream boas = new ByteArrayOutputStream(4096);
 	is.transferTo(boas);
+	if (pem) {
+	    String pemString="\n$(PEM)\n";
+	    boas.writeBytes(pemString.getBytes(UTF8));
+	}
 	byte[] bytes = boas.toByteArray();
 	MessageDigest md = createMD();
 	md.update(bytes);
@@ -794,10 +853,20 @@ public class DocsigVerifier {
 			keymap.put("type", type);
 			keymap.put("date", date);
 			keymap.put("timezone", timezone);
-			keymap.put("document", document);
+			if (document != null) {
+			    keymap.put("document", document);
+			}
 			keymap.put("sigserver", sigserver);
-			keymap.put("digest", md);
+			if (md != null) {
+			    keymap.put("digest", md);
+			}
 			keymap.put("PEM", PEM_START);
+
+			for (String key: result.getNames()) {
+			    String val = hdrs.getFirst(key);
+			    keymap.put(key.toLowerCase(), val);
+			}
+
 			TemplateProcessor tp = new TemplateProcessor(keymap);
 			if (hasEmailTemplateURL) {
 			    if (emailTemplateURL == null) {
@@ -807,7 +876,7 @@ public class DocsigVerifier {
 				     UTF8);
 			    } else {
 				try {
-				    r = urlReader(emailTemplateURL);
+				    r = urlReader(emailTemplateURL, true);
 				    if (udigest == null ||
 					!ucache.get(emailTemplateURL)
 					.equals(udigest)) {
